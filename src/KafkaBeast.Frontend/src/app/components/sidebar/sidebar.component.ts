@@ -42,36 +42,44 @@ interface ConnectionWithData extends KafkaConnection {
   ],
   template: `
     <mat-sidenav-container class="sidebar-container">
-      <mat-sidenav mode="side" opened class="sidebar" [style.width.px]="280">
+      <mat-sidenav mode="side" opened class="sidebar" [class.collapsed]="isCollapsed" [style.width.px]="isCollapsed ? 64 : 280">
         <div class="sidebar-header">
-          <h2 class="sidebar-title">
+          <h2 class="sidebar-title" *ngIf="!isCollapsed">
             <mat-icon>hub</mat-icon>
             Kafka Beast
           </h2>
+          <mat-icon *ngIf="isCollapsed" class="collapsed-logo">hub</mat-icon>
+          <button mat-icon-button class="collapse-btn" (click)="toggleCollapse()" [matTooltip]="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+            <mat-icon>{{ isCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+          </button>
         </div>
 
         <mat-nav-list class="sidebar-nav">
-          <a mat-list-item routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+          <a mat-list-item routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" [matTooltip]="isCollapsed ? 'Home' : ''" matTooltipPosition="right">
             <mat-icon>home</mat-icon>
-            <span>Home</span>
+            <span *ngIf="!isCollapsed">Home</span>
           </a>
-          <a mat-list-item routerLink="/connections" routerLinkActive="active">
+          <a mat-list-item routerLink="/connections" routerLinkActive="active" [matTooltip]="isCollapsed ? 'Connections' : ''" matTooltipPosition="right">
             <mat-icon>settings</mat-icon>
-            <span>Connections</span>
+            <span *ngIf="!isCollapsed">Connections</span>
           </a>
-          <a mat-list-item routerLink="/produce" routerLinkActive="active">
-            <mat-icon>send</mat-icon>
-            <span>Produce</span>
+          <a mat-list-item routerLink="/topics" routerLinkActive="active" [matTooltip]="isCollapsed ? 'Topics' : ''" matTooltipPosition="right">
+            <mat-icon>topic</mat-icon>
+            <span *ngIf="!isCollapsed">Topics</span>
           </a>
-          <a mat-list-item routerLink="/consume" routerLinkActive="active">
-            <mat-icon>download</mat-icon>
-            <span>Consume</span>
+          <a mat-list-item routerLink="/consumer-groups" routerLinkActive="active" [matTooltip]="isCollapsed ? 'Consumer Groups' : ''" matTooltipPosition="right">
+            <mat-icon>group</mat-icon>
+            <span *ngIf="!isCollapsed">Consumer Groups</span>
+          </a>
+          <a mat-list-item routerLink="/tools" routerLinkActive="active" [matTooltip]="isCollapsed ? 'Misc Tools' : ''" matTooltipPosition="right">
+            <mat-icon>build</mat-icon>
+            <span *ngIf="!isCollapsed">Misc Tools</span>
           </a>
         </mat-nav-list>
 
         <mat-divider></mat-divider>
 
-        <div class="connections-section">
+        <div class="connections-section" *ngIf="!isCollapsed">
           <div class="section-header">
             <h3>Kafka Connections</h3>
             <button mat-icon-button (click)="refreshConnections()" matTooltip="Refresh connections">
@@ -203,7 +211,7 @@ interface ConnectionWithData extends KafkaConnection {
         </div>
       </mat-sidenav>
 
-      <mat-sidenav-content class="main-content">
+      <mat-sidenav-content class="main-content" [style.margin-left.px]="isCollapsed ? 64 : 280">
         <ng-content></ng-content>
       </mat-sidenav-content>
     </mat-sidenav-container>
@@ -229,6 +237,36 @@ interface ConnectionWithData extends KafkaConnection {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 68px;
+    }
+
+    .collapse-btn {
+      color: white;
+      opacity: 0.8;
+    }
+
+    .collapse-btn:hover {
+      opacity: 1;
+    }
+
+    .collapsed-logo {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+    }
+
+    .sidebar.collapsed .sidebar-header {
+      padding: 20px 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .sidebar.collapsed .collapse-btn {
+      margin: 0;
     }
 
     .sidebar-title {
@@ -267,6 +305,15 @@ interface ConnectionWithData extends KafkaConnection {
     .sidebar-nav mat-icon {
       margin-right: 16px;
       color: #757575;
+    }
+
+    .sidebar.collapsed .sidebar-nav mat-icon {
+      margin-right: 0;
+    }
+
+    .sidebar.collapsed .sidebar-nav a {
+      justify-content: center;
+      padding: 12px 8px;
     }
 
     .sidebar-nav a.active mat-icon {
@@ -482,10 +529,10 @@ interface ConnectionWithData extends KafkaConnection {
     }
 
     .main-content {
-      margin-left: 280px;
       padding: 0;
       background: #f5f5f5;
       min-height: 100vh;
+      transition: margin-left 0.2s ease;
     }
 
     mat-divider {
@@ -496,12 +543,18 @@ interface ConnectionWithData extends KafkaConnection {
 export class SidebarComponent implements OnInit, OnDestroy {
   connections: ConnectionWithData[] = [];
   loading = false;
+  isCollapsed = false;
   private destroy$ = new Subject<void>();
 
   constructor(private kafkaApiService: KafkaApiService) {}
 
   ngOnInit(): void {
     this.loadConnections();
+    // Restore collapsed state from localStorage
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState !== null) {
+      this.isCollapsed = savedState === 'true';
+    }
   }
 
   ngOnDestroy(): void {
@@ -535,6 +588,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   refreshConnections(): void {
     this.loadConnections();
+  }
+
+  toggleCollapse(): void {
+    this.isCollapsed = !this.isCollapsed;
+    localStorage.setItem('sidebarCollapsed', String(this.isCollapsed));
   }
 
   toggleTopics(connection: ConnectionWithData): void {

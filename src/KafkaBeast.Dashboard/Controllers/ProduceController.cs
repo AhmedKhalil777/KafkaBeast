@@ -35,7 +35,9 @@ public class ProduceController : ControllerBase
                 Topic = result.Topic,
                 Partition = result.Partition,
                 Offset = result.Offset,
-                Status = "Success"
+                Status = "Success",
+                KeySerialization = result.KeySerialization.ToString(),
+                ValueSerialization = result.ValueSerialization.ToString()
             };
 
             return Ok(response);
@@ -43,6 +45,46 @@ public class ProduceController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error producing message to topic {Topic}", request.Topic);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("batch")]
+    public async Task<ActionResult<BatchProduceResponse>> ProduceBatch([FromBody] BatchProduceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Topic))
+        {
+            return BadRequest("Topic is required");
+        }
+
+        if (request.Messages == null || !request.Messages.Any())
+        {
+            return BadRequest("At least one message is required");
+        }
+
+        try
+        {
+            var response = await _producerService.ProduceBatchAsync(request);
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error batch producing messages to topic {Topic}", request.Topic);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{connectionId}/flush")]
+    public ActionResult Flush(string connectionId, [FromQuery] int timeoutSeconds = 30)
+    {
+        try
+        {
+            _producerService.FlushProducer(connectionId, TimeSpan.FromSeconds(timeoutSeconds));
+            return Ok(new { success = true, message = "Producer flushed successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error flushing producer for connection {ConnectionId}", connectionId);
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -54,5 +96,8 @@ public class ProduceMessageResponse
     public int Partition { get; set; }
     public long Offset { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string KeySerialization { get; set; } = string.Empty;
+    public string ValueSerialization { get; set; } = string.Empty;
 }
+
 

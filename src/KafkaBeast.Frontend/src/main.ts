@@ -2,6 +2,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideMonacoEditor } from 'ngx-monaco-editor-v2';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 
@@ -9,7 +10,10 @@ bootstrapApplication(AppComponent, {
   providers: [
     provideRouter(routes),
     provideHttpClient(),
-    provideAnimations()
+    provideAnimations(),
+    provideMonacoEditor({
+      baseUrl: './vs'
+    })
   ]
 }).catch(err => console.error(err));
 

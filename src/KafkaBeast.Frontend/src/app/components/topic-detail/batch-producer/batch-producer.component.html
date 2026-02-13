@@ -1,0 +1,253 @@
+<div class="batch-producer">
+  <!-- File Upload Area -->
+  <div class="batch-section">
+    <h4 class="batch-section-title">
+      <mat-icon>folder_open</mat-icon>
+      1. Upload Files
+    </h4>
+    <div class="file-drop-zone" 
+         [class.drag-over]="dragOver"
+         (dragover)="onDragOver($event)"
+         (dragleave)="onDragLeave($event)"
+         (drop)="onDrop($event)">
+      <input type="file" 
+             #fileInput 
+             multiple 
+             (change)="onFileSelect($event)" 
+             style="display: none;">
+      <mat-icon class="drop-icon">cloud_upload</mat-icon>
+      <p class="drop-text">Drag & drop files here or <a (click)="fileInput.click()">browse</a></p>
+      <p class="drop-hint">Each file will be sent as a separate message</p>
+    </div>
+
+    <!-- File List -->
+    <div class="batch-files" *ngIf="files.length > 0">
+      <div class="batch-files-header">
+        <span>{{ files.length }} file(s) selected</span>
+        <button mat-stroked-button color="warn" (click)="clearFiles()">
+          <mat-icon>clear_all</mat-icon>
+          Clear All
+        </button>
+      </div>
+      <div class="file-list">
+        <div *ngFor="let file of files; let i = index" class="file-item">
+          <mat-icon class="file-icon">description</mat-icon>
+          <div class="file-details">
+            <span class="file-name">{{ file.name }}</span>
+            <span class="file-size">{{ formatFileSize(file.size) }}</span>
+          </div>
+          <button mat-icon-button color="warn" (click)="removeFile(i)">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expression Bindings -->
+  <div class="batch-section">
+    <h4 class="batch-section-title">
+      <mat-icon>functions</mat-icon>
+      2. Define Variables
+    </h4>
+    <p class="batch-section-hint">
+      Create variables using expressions. Use <code>FileContent</code> for file data.
+    </p>
+    <div class="expressions-list">
+      <div *ngFor="let expr of expressions; let i = index" class="expression-row">
+        <span class="expr-prefix">$$</span>
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field var-name-field">
+          <mat-label>Variable</mat-label>
+          <input matInput [(ngModel)]="expr.variable" placeholder="payload">
+        </mat-form-field>
+        <span class="expr-equals">=</span>
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field expr-field">
+          <mat-label>Expression</mat-label>
+          <input matInput 
+                 [(ngModel)]="expr.expression" 
+                 [matAutocomplete]="exprAuto"
+                 (focus)="setActiveExpression(i)"
+                 placeholder="Start typing or select...">
+          <mat-autocomplete #exprAuto="matAutocomplete" class="expression-autocomplete">
+            <mat-optgroup *ngFor="let cat of expressionCategories" [label]="cat.label">
+              <mat-option *ngFor="let sample of getSamplesByCategory(cat.key)" 
+                          [value]="sample.expression"
+                          [matTooltip]="sample.description"
+                          matTooltipPosition="right">
+                <div class="autocomplete-option">
+                  <code class="option-expr">{{ sample.expression }}</code>
+                  <span class="option-desc">{{ sample.description }}</span>
+                </div>
+              </mat-option>
+            </mat-optgroup>
+          </mat-autocomplete>
+        </mat-form-field>
+        <button mat-icon-button color="warn" (click)="removeExpression(i)" 
+                [disabled]="expressions.length === 1">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </div>
+      <button mat-stroked-button (click)="addExpression()">
+        <mat-icon>add</mat-icon>
+        Add Variable
+      </button>
+    </div>
+    <div class="expression-examples">
+      <span class="examples-label">Quick insert:</span>
+      <mat-chip-set>
+        <mat-chip *ngFor="let ex of getExpressionExamples()" 
+                  (click)="setExpressionExample(ex)"
+                  matTooltip="Click to insert">
+          {{ ex }}
+        </mat-chip>
+      </mat-chip-set>
+    </div>
+  </div>
+
+  <!-- Message Template -->
+  <div class="batch-section">
+    <h4 class="batch-section-title">
+      <mat-icon>code</mat-icon>
+      3. Message Template
+    </h4>
+    <p class="batch-section-hint">
+      Use <code>$$variable</code> placeholders in your template. They will be replaced with evaluated expressions.
+    </p>
+    <mat-form-field appearance="fill" class="full-width template-field">
+      <mat-label>Message Template</mat-label>
+      <textarea matInput 
+                [(ngModel)]="messageTemplate" 
+                rows="6"
+                placeholder='{ "payload": "$$payload", "type": "document" }'></textarea>
+    </mat-form-field>
+    <div class="template-preview" *ngIf="expressions.length > 0">
+      <span class="preview-label">Variables in template:</span>
+      <mat-chip-set>
+        <mat-chip *ngFor="let expr of expressions" [class.used]="isVariableUsed(expr.variable)">
+          <mat-icon matChipTrailingIcon>{{ isVariableUsed(expr.variable) ? 'check' : 'warning' }}</mat-icon>
+          $${{ expr.variable }}
+        </mat-chip>
+      </mat-chip-set>
+    </div>
+  </div>
+
+  <!-- Shared Settings -->
+  <mat-expansion-panel class="batch-settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        <mat-icon>tune</mat-icon>
+        Message Settings
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <div class="batch-settings-content">
+      <div class="form-row">
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field flex-2">
+          <mat-label>Message Key (optional)</mat-label>
+          <input matInput [(ngModel)]="messageKey" placeholder="Enter key">
+        </mat-form-field>
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+          <mat-label>Partition</mat-label>
+          <mat-select [(ngModel)]="selectedPartition">
+            <mat-option [value]="undefined">Auto</mat-option>
+            <mat-option *ngFor="let p of partitions" [value]="p.partitionId">
+              Partition {{ p.partitionId }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <div class="form-row">
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+          <mat-label>Key Serialization</mat-label>
+          <mat-select [(ngModel)]="keySerialization">
+            <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+              {{ type.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+          <mat-label>Value Serialization</mat-label>
+          <mat-select [(ngModel)]="valueSerialization">
+            <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+              {{ type.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- Headers -->
+      <div class="headers-editor">
+        <div class="headers-label">Headers ({{ headers.length }})</div>
+        <div *ngFor="let header of headers; let i = index" class="header-row">
+          <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+            <mat-label>Key</mat-label>
+            <input matInput [(ngModel)]="header.key" placeholder="Key">
+          </mat-form-field>
+          <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+            <mat-label>Value</mat-label>
+            <input matInput [(ngModel)]="header.value" placeholder="Value">
+          </mat-form-field>
+          <button mat-icon-button color="warn" (click)="removeHeader(i)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+        <button mat-stroked-button (click)="addHeader()">
+          <mat-icon>add</mat-icon>
+          Add Header
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel>
+
+  <!-- Progress & Actions -->
+  <div class="batch-actions">
+    <button mat-raised-button color="primary" 
+            (click)="produceBatch()"
+            [disabled]="files.length === 0 || isProducing">
+      <mat-icon>{{ isProducing ? 'hourglass_empty' : 'send' }}</mat-icon>
+      {{ isProducing ? 'Sending...' : 'Send All (' + files.length + ')' }}
+    </button>
+    <button mat-stroked-button (click)="clearFiles()" [disabled]="isProducing">
+      <mat-icon>clear</mat-icon>
+      Clear
+    </button>
+  </div>
+
+  <!-- Progress Bar -->
+  <div *ngIf="isProducing" class="batch-progress">
+    <mat-progress-bar mode="determinate" [value]="progress"></mat-progress-bar>
+    <span class="progress-text">{{ progress }}%</span>
+  </div>
+
+  <!-- Batch Results -->
+  <div *ngIf="results.length > 0" class="batch-results">
+    <h4 class="results-title">
+      <mat-icon>checklist</mat-icon>
+      Results
+    </h4>
+    <div class="results-summary">
+      <span class="success-count">
+        <mat-icon>check_circle</mat-icon>
+        {{ getSuccessCount() }} succeeded
+      </span>
+      <span class="error-count" *ngIf="getFailureCount() > 0">
+        <mat-icon>error</mat-icon>
+        {{ getFailureCount() }} failed
+      </span>
+    </div>
+    <div class="results-list">
+      <div *ngFor="let result of results" 
+           class="result-item" 
+           [class.success]="result.success"
+           [class.error]="!result.success">
+        <mat-icon>{{ result.success ? 'check_circle' : 'error' }}</mat-icon>
+        <span class="result-file">{{ result.fileName }}</span>
+        <span class="result-detail" *ngIf="result.success">
+          P{{ result.partition }} O{{ result.offset }}
+        </span>
+        <span class="result-error" *ngIf="!result.success">
+          {{ result.error }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,113 @@
+<div class="topic-statistics">
+  <!-- Stats Cards Grid -->
+  <div class="stats-grid">
+    <mat-card class="stat-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>message</mat-icon>
+        <mat-card-title>Messages</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="big-stat">{{ totalMessages | number }}</div>
+        <p class="stat-description">Total messages across all partitions</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>view_module</mat-icon>
+        <mat-card-title>Partitions</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="big-stat">{{ partitionCount }}</div>
+        <p class="stat-description">Number of partitions</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>copy_all</mat-icon>
+        <mat-card-title>Replication</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="big-stat">{{ replicationFactor }}</div>
+        <p class="stat-description">Replication factor</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>{{ getHealthIcon() }}</mat-icon>
+        <mat-card-title>Health</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="big-stat" [ngClass]="getHealthClass()">
+          {{ isHealthy ? 'Healthy' : 'Degraded' }}
+        </div>
+        <p class="stat-description">{{ healthDescription }}</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Partition Distribution -->
+  <div class="distribution-section">
+    <h3 class="section-title">
+      <mat-icon>pie_chart</mat-icon>
+      Message Distribution by Partition
+    </h3>
+    
+    <div class="distribution-chart" *ngIf="partitions && partitions.length > 0; else noPartitions">
+      <div *ngFor="let p of partitions" class="partition-bar">
+        <div class="partition-label">P{{ p.partitionId }}</div>
+        <div class="bar-container">
+          <div class="bar-fill" [style.width.%]="getPartitionPercentage(p)">
+            <span class="bar-percentage" *ngIf="getPartitionPercentage(p) > 15">
+              {{ getPartitionPercentage(p) | number:'1.0-0' }}%
+            </span>
+          </div>
+        </div>
+        <div class="partition-count">{{ p.messageCount | number }}</div>
+      </div>
+    </div>
+    
+    <ng-template #noPartitions>
+      <div class="no-data">
+        <mat-icon>info</mat-icon>
+        <span>No partition data available</span>
+      </div>
+    </ng-template>
+  </div>
+
+  <!-- Partition Details Table -->
+  <div class="partition-details" *ngIf="partitions && partitions.length > 0">
+    <h3 class="section-title">
+      <mat-icon>table_chart</mat-icon>
+      Partition Details
+    </h3>
+    
+    <div class="partition-table">
+      <div class="table-header">
+        <span class="col-partition">Partition</span>
+        <span class="col-leader">Leader</span>
+        <span class="col-low">Low Watermark</span>
+        <span class="col-high">High Watermark</span>
+        <span class="col-messages">Messages</span>
+        <span class="col-replicas">Replicas</span>
+        <span class="col-isr">In-Sync</span>
+      </div>
+      <div *ngFor="let p of partitions" class="table-row">
+        <span class="col-partition">
+          <span class="partition-badge">{{ p.partitionId }}</span>
+        </span>
+        <span class="col-leader">{{ p.leader }}</span>
+        <span class="col-low">{{ p.lowWatermark | number }}</span>
+        <span class="col-high">{{ p.highWatermark | number }}</span>
+        <span class="col-messages">{{ p.messageCount | number }}</span>
+        <span class="col-replicas">{{ p.replicas?.join(', ') || '-' }}</span>
+        <span class="col-isr" [class.healthy]="p.inSyncReplicas?.length === p.replicas?.length" 
+              [class.degraded]="p.inSyncReplicas?.length !== p.replicas?.length">
+          {{ p.inSyncReplicas?.join(', ') || '-' }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -45,6 +45,12 @@ public class ConnectionsController : ControllerBase
             return BadRequest("Name and BootstrapServers are required");
         }
 
+        // Ensure ID is set
+        if (string.IsNullOrWhiteSpace(connection.Id))
+        {
+            connection.Id = Guid.NewGuid().ToString();
+        }
+
         var created = await _connectionService.AddConnectionAsync(connection);
         return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
     }
@@ -90,4 +96,5 @@ public class ConnectionsController : ControllerBase
         return NoContent();
     }
 }
+
 

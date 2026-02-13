@@ -1,0 +1,119 @@
+<div class="message-viewer" *ngIf="message">
+  <div class="viewer-header">
+    <div class="viewer-title">
+      <mat-icon>{{ previewType === 'key' ? 'vpn_key' : 'article' }}</mat-icon>
+      <span>{{ previewType === 'key' ? 'Key' : 'Value' }}</span>
+      <mat-chip class="small">P{{ message.partition }} : {{ message.offset }}</mat-chip>
+    </div>
+    <div class="viewer-type-toggle">
+      <button mat-button [class.active]="previewType === 'key'" (click)="switchPreviewType('key')">Key</button>
+      <button mat-button [class.active]="previewType === 'value'" (click)="switchPreviewType('value')">Value</button>
+    </div>
+  </div>
+  
+  <!-- Message Meta -->
+  <div class="viewer-meta">
+    <span><strong>Timestamp:</strong> {{ message.timestamp | date:'medium' }}</span>
+    <span *ngIf="message.headers && getHeaderKeys(message.headers).length > 0">
+      <strong>Headers:</strong> {{ getHeaderKeys(message.headers).length }}
+    </span>
+  </div>
+
+  <!-- Viewer Mode Selector -->
+  <div class="viewer-toolbar compact">
+    <mat-button-toggle-group [(ngModel)]="previewMode" class="viewer-toggles small">
+      <mat-button-toggle value="text">Text</mat-button-toggle>
+      <mat-button-toggle value="json" [disabled]="!isValidJson(previewContent)">JSON</mat-button-toggle>
+      <mat-button-toggle value="xml" [disabled]="!isValidXml(previewContent)">XML</mat-button-toggle>
+      <mat-button-toggle value="tree" [disabled]="!isValidJson(previewContent)">Tree</mat-button-toggle>
+    </mat-button-toggle-group>
+    
+    <div class="toolbar-actions">
+      <button *ngIf="previewMode === 'tree' || previewMode === 'xml'" mat-icon-button matTooltip="Expand All" (click)="expandAllForMode()">
+        <mat-icon>unfold_more</mat-icon>
+      </button>
+      <button *ngIf="previewMode === 'tree' || previewMode === 'xml'" mat-icon-button matTooltip="Collapse All" (click)="collapseAllForMode()">
+        <mat-icon>unfold_less</mat-icon>
+      </button>
+      <button mat-icon-button matTooltip="Copy" (click)="copyToClipboard(previewContent)">
+        <mat-icon>content_copy</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Transform Result Info -->
+  <div *ngIf="transformApplied && !transformError" class="transform-info">
+    <mat-icon>check_circle</mat-icon>
+    <span>Transform applied: {{ transformExpression }}</span>
+  </div>
+  <div *ngIf="transformError" class="transform-error-inline">
+    <mat-icon>error</mat-icon>
+    <span>{{ transformError }}</span>
+  </div>
+
+  <!-- Content Display -->
+  <div class="preview-content-container">
+    <pre *ngIf="previewMode === 'text'" class="preview-content text-view">{{ previewContent }}</pre>
+    <pre *ngIf="previewMode === 'json'" class="preview-content json-view"><code [innerHTML]="highlightJson(previewContent)"></code></pre>
+    
+    <!-- XML Monaco Editor View -->
+    <div *ngIf="previewMode === 'xml'" class="xml-monaco-view">
+      <div class="monaco-toolbar">
+        <button mat-icon-button matTooltip="Copy XML" (click)="copyToClipboard(formatXml())">
+          <mat-icon>content_copy</mat-icon>
+        </button>
+        <button mat-icon-button matTooltip="Format XML" (click)="formatAndSetXml()">
+          <mat-icon>auto_fix_high</mat-icon>
+        </button>
+      </div>
+      <div class="monaco-container">
+        <ngx-monaco-editor
+          [options]="xmlEditorOptions"
+          [(ngModel)]="formattedXmlContent">
+        </ngx-monaco-editor>
+      </div>
+    </div>
+    
+    <div *ngIf="previewMode === 'tree'" class="tree-view">
+      <div *ngIf="parsedJson !== null" class="json-tree">
+        <ng-container *ngTemplateOutlet="treeNode; context: { $implicit: parsedJson, path: 'root', level: 0, key: 'root', isRoot: true }"></ng-container>
+      </div>
+      <div *ngIf="parsedJson === null" class="tree-error">
+        <mat-icon>error_outline</mat-icon>
+        <span>Unable to parse as JSON</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Empty State -->
+<div class="empty-viewer" *ngIf="!message">
+  <mat-icon>touch_app</mat-icon>
+  <p>Select a message to view details</p>
+</div>
+
+<!-- Tree Node Template -->
+<ng-template #treeNode let-node let-path="path" let-level="level" let-key="key" let-isRoot="isRoot">
+  <div class="tree-node" [style.padding-left.px]="level * 16">
+    <ng-container *ngIf="isExpandable(node)">
+      <button mat-icon-button class="expand-btn" (click)="toggleNode(path)">
+        <mat-icon>{{ isNodeExpanded(path) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+      </button>
+      <span class="node-key" *ngIf="!isRoot">{{ key }}:</span>
+      <span class="node-type">{{ isArray(node) ? '[' + node.length + ']' : '{' + getObjectEntries(node).length + '}' }}</span>
+      
+      <div *ngIf="isNodeExpanded(path)" class="node-children">
+        <ng-container *ngFor="let entry of getObjectEntries(node)">
+          <ng-container *ngTemplateOutlet="treeNode; context: { $implicit: entry.value, path: getNodePath(path, entry.key), level: level + 1, key: entry.key, isRoot: false }"></ng-container>
+        </ng-container>
+      </div>
+    </ng-container>
+    
+    <ng-container *ngIf="!isExpandable(node)">
+      <mat-icon class="value-icon {{ getValueClass(node) }}">{{ getValueIcon(node) }}</mat-icon>
+      <span class="node-key">{{ key }}:</span>
+      <span class="node-value {{ getValueClass(node) }}">{{ formatTreeValue(node) }}</span>
+    </ng-container>
+  </div>
+</ng-template>
+

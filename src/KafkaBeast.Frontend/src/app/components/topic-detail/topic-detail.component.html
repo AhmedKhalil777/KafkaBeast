@@ -1,0 +1,1053 @@
+    <div class="topic-detail-container">
+      <!-- Header -->
+      <div class="page-header fade-in">
+        <div class="header-content">
+          <button mat-icon-button (click)="goBack()" class="back-btn" matTooltip="Back to Topics">
+            <mat-icon>arrow_back</mat-icon>
+          </button>
+          <div class="header-info">
+            <h1 class="page-title">{{ topicName }}</h1>
+            <p class="page-subtitle" *ngIf="topicDetails">
+              {{ topicDetails.partitionCount }} partitions · Replication factor {{ topicDetails.replicationFactor }}
+              <span *ngIf="topicWatermarks"> · {{ topicWatermarks.totalMessages | number }} messages</span>
+            </p>
+          </div>
+        </div>
+        
+        <!-- Connection Selector -->
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field connection-selector">
+          <mat-label>Connection</mat-label>
+          <mat-select [(ngModel)]="selectedConnectionId" (selectionChange)="onConnectionChange()">
+            <mat-option *ngFor="let conn of activeConnections" [value]="conn.id">
+              {{ conn.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loading-container">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading topic details...</p>
+      </div>
+
+      <!-- Main Content -->
+      <mat-card *ngIf="!isLoading && topicDetails" class="main-card fade-in">
+        <mat-tab-group [(selectedIndex)]="activeTabIndex" class="topic-tabs">
+          
+          <!-- Overview Tab -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>dashboard</mat-icon>
+              <span>Overview</span>
+            </ng-template>
+            <div class="tab-content">
+              <!-- Stats Cards -->
+              <div class="stats-row">
+                <div class="stat-card">
+                  <mat-icon>view_module</mat-icon>
+                  <div class="stat-info">
+                    <span class="stat-value">{{ topicDetails.partitionCount }}</span>
+                    <span class="stat-label">Partitions</span>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <mat-icon>copy_all</mat-icon>
+                  <div class="stat-info">
+                    <span class="stat-value">{{ topicDetails.replicationFactor }}</span>
+                    <span class="stat-label">Replication Factor</span>
+                  </div>
+                </div>
+                <div class="stat-card" *ngIf="topicWatermarks">
+                  <mat-icon>message</mat-icon>
+                  <div class="stat-info">
+                    <span class="stat-value">{{ topicWatermarks.totalMessages | number }}</span>
+                    <span class="stat-label">Total Messages</span>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <mat-icon>dns</mat-icon>
+                  <div class="stat-info">
+                    <span class="stat-value">{{ getUniqueReplicas() }}</span>
+                    <span class="stat-label">Brokers Used</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Partitions Table -->
+              <h3 class="section-title">
+                <mat-icon>view_list</mat-icon>
+                Partitions
+              </h3>
+              <div class="table-container">
+                <table mat-table [dataSource]="partitionInfoList" class="partitions-table">
+                  <ng-container matColumnDef="partitionId">
+                    <th mat-header-cell *matHeaderCellDef>Partition</th>
+                    <td mat-cell *matCellDef="let p">
+                      <mat-chip class="partition-chip">{{ p.partitionId }}</mat-chip>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="leader">
+                    <th mat-header-cell *matHeaderCellDef>Leader</th>
+                    <td mat-cell *matCellDef="let p">
+                      <span class="leader-badge">Broker {{ p.leader }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="replicas">
+                    <th mat-header-cell *matHeaderCellDef>Replicas</th>
+                    <td mat-cell *matCellDef="let p">
+                      <span class="replica-list">{{ p.replicas.join(', ') }}</span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="isrs">
+                    <th mat-header-cell *matHeaderCellDef>In-Sync Replicas</th>
+                    <td mat-cell *matCellDef="let p">
+                      <span [class.healthy]="p.isrs.length === p.replicas.length" 
+                            [class.warning]="p.isrs.length < p.replicas.length">
+                        {{ p.isrs.join(', ') }}
+                      </span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="lowOffset">
+                    <th mat-header-cell *matHeaderCellDef>First Offset</th>
+                    <td mat-cell *matCellDef="let p">{{ p.lowOffset | number }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="highOffset">
+                    <th mat-header-cell *matHeaderCellDef>Next Offset</th>
+                    <td mat-cell *matCellDef="let p">{{ p.highOffset | number }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="messageCount">
+                    <th mat-header-cell *matHeaderCellDef>Messages</th>
+                    <td mat-cell *matCellDef="let p">
+                      <mat-chip class="message-chip">{{ p.messageCount | number }}</mat-chip>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="partitionColumns; sticky: true"></tr>
+                  <tr mat-row *matRowDef="let row; columns: partitionColumns;"></tr>
+                </table>
+              </div>
+
+              <!-- Configuration Section -->
+              <h3 class="section-title" *ngIf="topicDetails.configurations">
+                <mat-icon>settings</mat-icon>
+                Configuration
+              </h3>
+              <div class="config-grid" *ngIf="topicDetails.configurations">
+                <div *ngFor="let config of getConfigEntries(topicDetails.configurations)" class="config-item">
+                  <code class="config-key">{{ config.key }}</code>
+                  <span class="config-value">{{ config.value }}</span>
+                </div>
+              </div>
+            </div>
+          </mat-tab>
+
+          <!-- Consume Tab -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>download</mat-icon>
+              <span>Consume</span>
+              <mat-chip *ngIf="consumedMessages.length > 0" class="tab-badge">
+                {{ consumedMessages.length }}
+              </mat-chip>
+            </ng-template>
+            <div class="tab-content">
+              <!-- Consumer Controls -->
+              <div class="consumer-controls">
+                <div class="control-row">
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Max Messages</mat-label>
+                    <input matInput type="number" [(ngModel)]="maxMessages" min="1" max="1000">
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Start From</mat-label>
+                    <mat-select [(ngModel)]="consumeRequest.autoOffsetReset">
+                      <mat-option [value]="true">Beginning</mat-option>
+                      <mat-option [value]="false">Latest</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Partition</mat-label>
+                    <mat-select [(ngModel)]="consumeRequest.partition">
+                      <mat-option [value]="undefined">All</mat-option>
+                      <mat-option *ngFor="let p of partitionInfoList" [value]="p.partitionId">
+                        Partition {{ p.partitionId }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Deserializer</mat-label>
+                    <mat-select [(ngModel)]="consumeRequest.valueSerialization">
+                      <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+                        {{ type.name }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+
+                <div class="control-actions">
+                  <mat-slide-toggle [(ngModel)]="useRealtime" color="primary">
+                    Real-time streaming
+                  </mat-slide-toggle>
+                  
+                  <button mat-raised-button color="primary" 
+                          (click)="useRealtime ? startRealtimeConsume() : consumeMessages()"
+                          [disabled]="isConsuming">
+                    <mat-icon>{{ isConsuming ? 'hourglass_empty' : 'play_arrow' }}</mat-icon>
+                    {{ isConsuming ? 'Consuming...' : 'Start' }}
+                  </button>
+
+                  <button mat-stroked-button color="warn" 
+                          *ngIf="isConsuming && useRealtime"
+                          (click)="stopConsuming()">
+                    <mat-icon>stop</mat-icon>
+                    Stop
+                  </button>
+
+                  <button mat-stroked-button (click)="clearMessages()" 
+                          *ngIf="consumedMessages.length > 0">
+                    <mat-icon>clear_all</mat-icon>
+                    Clear
+                  </button>
+
+                  <button mat-stroked-button (click)="exportMessages()" 
+                          *ngIf="consumedMessages.length > 0" matTooltip="Export to JSON">
+                    <mat-icon>file_download</mat-icon>
+                    Export
+                  </button>
+                </div>
+              </div>
+
+              <!-- Messages List -->
+              <div class="messages-container" *ngIf="consumedMessages.length > 0">
+                <!-- Expression Transform Input -->
+                <div class="expression-transform-bar">
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="transform-expression-field">
+                    <mat-label>Transform Expression (optional)</mat-label>
+                    <input matInput 
+                           [(ngModel)]="messageTransformExpression" 
+                           [matAutocomplete]="transformAuto"
+                           placeholder="e.g., Json(Value).payload.ToStringFromBase64()"
+                           (keyup.enter)="applyTransform()">
+                    <mat-icon matSuffix matTooltip="Type to search or select from dropdown">search</mat-icon>
+                    <mat-autocomplete #transformAuto="matAutocomplete" class="transform-autocomplete">
+                      <mat-optgroup *ngFor="let cat of transformExpressionCategories" [label]="cat.label">
+                        <mat-option *ngFor="let sample of getTransformSamplesByCategory(cat.key)" 
+                                    [value]="sample.expression"
+                                    [matTooltip]="sample.description"
+                                    matTooltipPosition="right">
+                          <div class="transform-option">
+                            <code class="transform-expr">{{ sample.expression }}</code>
+                            <span class="transform-desc">{{ sample.description }}</span>
+                          </div>
+                        </mat-option>
+                      </mat-optgroup>
+                    </mat-autocomplete>
+                  </mat-form-field>
+                  <button mat-stroked-button (click)="applyTransform()" [disabled]="!messageTransformExpression">
+                    <mat-icon>play_arrow</mat-icon>
+                    Apply
+                  </button>
+                  <button mat-stroked-button (click)="clearTransform()" *ngIf="messageTransformExpression">
+                    <mat-icon>clear</mat-icon>
+                    Clear
+                  </button>
+                </div>
+
+                <div class="messages-split-view">
+                  <!-- Messages List Panel -->
+                  <div class="messages-list-panel">
+                    <div class="messages-header">
+                      <span>{{ consumedMessages.length }} messages</span>
+                    </div>
+                    <div class="messages-table-container">
+                      <table class="messages-table">
+                        <tbody>
+                          <tr *ngFor="let msg of consumedMessages; let i = index" 
+                              class="message-row"
+                              [class.selected]="selectedMessageIndex === i"
+                              (click)="selectMessage(msg, i)">
+                            <td class="col-partition">
+                              <mat-chip class="partition-chip tiny">P{{ msg.partition }}</mat-chip>
+                            </td>
+                            <td class="col-offset">{{ msg.offset }}</td>
+                            <td class="col-key">{{ msg.key || '(no key)' }}</td>
+                            <td class="col-value">{{ truncateValue(msg.value, 60) }}</td>
+                            <td class="col-time">{{ msg.timestamp | date:'shortTime' }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Message Viewer Panel -->
+                  <div class="message-viewer-panel" *ngIf="previewMessage">
+                    <div class="viewer-header">
+                      <div class="viewer-title">
+                        <mat-icon>{{ previewType === 'key' ? 'vpn_key' : 'article' }}</mat-icon>
+                        <span>{{ previewType === 'key' ? 'Key' : 'Value' }}</span>
+                        <mat-chip class="small">P{{ previewMessage.partition }} : {{ previewMessage.offset }}</mat-chip>
+                      </div>
+                      <div class="viewer-type-toggle">
+                        <button mat-button [class.active]="previewType === 'key'" (click)="switchPreviewType('key')">Key</button>
+                        <button mat-button [class.active]="previewType === 'value'" (click)="switchPreviewType('value')">Value</button>
+                      </div>
+                    </div>
+                    
+                    <!-- Message Meta -->
+                    <div class="viewer-meta">
+                      <span><strong>Timestamp:</strong> {{ previewMessage.timestamp | date:'medium' }}</span>
+                      <span *ngIf="previewMessage.headers && getHeaderKeys(previewMessage.headers).length > 0">
+                        <strong>Headers:</strong> {{ getHeaderKeys(previewMessage.headers).length }}
+                      </span>
+                    </div>
+
+                    <!-- Viewer Mode Selector -->
+                    <div class="viewer-toolbar compact">
+                      <mat-button-toggle-group [(ngModel)]="previewMode" class="viewer-toggles small">
+                        <mat-button-toggle value="text">Text</mat-button-toggle>
+                        <mat-button-toggle value="json" [disabled]="!isValidJson(previewContent)">JSON</mat-button-toggle>
+                        <mat-button-toggle value="xml" [disabled]="!isValidXml(previewContent)">XML</mat-button-toggle>
+                        <mat-button-toggle value="tree" [disabled]="!isValidJson(previewContent)">Tree</mat-button-toggle>
+                      </mat-button-toggle-group>
+                      
+                      <div class="toolbar-actions">
+                        <button *ngIf="previewMode === 'tree'" mat-icon-button matTooltip="Expand All" (click)="expandAll()">
+                          <mat-icon>unfold_more</mat-icon>
+                        </button>
+                        <button *ngIf="previewMode === 'tree'" mat-icon-button matTooltip="Collapse All" (click)="collapseAll()">
+                          <mat-icon>unfold_less</mat-icon>
+                        </button>
+                        <button mat-icon-button matTooltip="Copy" (click)="copyToClipboard(previewContent)">
+                          <mat-icon>content_copy</mat-icon>
+                        </button>
+                        <button mat-icon-button matTooltip="Fullscreen Content" (click)="openContentModal(previewContent)">
+                          <mat-icon>fullscreen</mat-icon>
+                        </button>
+                        <button mat-icon-button matTooltip="Full Details" (click)="openPreview(previewMessage!, previewType, $event)">
+                          <mat-icon>open_in_new</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Transform Result Info -->
+                    <div *ngIf="transformApplied && !transformError" class="transform-info">
+                      <mat-icon>check_circle</mat-icon>
+                      <span>Transform applied: {{ messageTransformExpression }}</span>
+                    </div>
+                    <div *ngIf="transformError" class="transform-error-inline">
+                      <mat-icon>error</mat-icon>
+                      <span>{{ transformError }}</span>
+                    </div>
+
+                    <!-- Content Display -->
+                    <div class="preview-content-container inline-viewer">
+                      <pre *ngIf="previewMode === 'text'" class="preview-content text-view">{{ previewContent }}</pre>
+                      <pre *ngIf="previewMode === 'json'" class="preview-content json-view"><code [innerHTML]="highlightJson(previewContent)"></code></pre>
+                      <div *ngIf="previewMode === 'xml'" class="xml-monaco-view">
+                        <ngx-monaco-editor [options]="xmlEditorOptions" [(ngModel)]="formattedXmlContent"></ngx-monaco-editor>
+                      </div>
+                      <div *ngIf="previewMode === 'tree'" class="tree-view inline-tree">
+                        <div *ngIf="parsedJson !== null" class="json-tree">
+                          <ng-container *ngTemplateOutlet="treeNode; context: { $implicit: parsedJson, path: 'root', level: 0, key: 'root', isRoot: true }"></ng-container>
+                        </div>
+                        <div *ngIf="parsedJson === null" class="tree-error">
+                          <mat-icon>error_outline</mat-icon>
+                          <span>Unable to parse as JSON</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- No Selection State -->
+                  <div class="message-viewer-panel empty-viewer" *ngIf="!previewMessage">
+                    <mat-icon>touch_app</mat-icon>
+                    <p>Select a message to view details</p>
+                  </div>
+                </div>
+              </div>
+
+              <div *ngIf="consumedMessages.length === 0 && !isConsuming" class="empty-state">
+                <mat-icon>inbox</mat-icon>
+                <h3>No Messages</h3>
+                <p>Click "Start" to begin consuming messages from this topic</p>
+              </div>
+            </div>
+          </mat-tab>
+
+          <!-- Produce Tab -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>send</mat-icon>
+              <span>Produce</span>
+            </ng-template>
+            <div class="tab-content">
+              <!-- Mode Toggle -->
+              <div class="produce-mode-toggle">
+                <mat-button-toggle-group [(ngModel)]="produceMode" class="mode-toggle-group">
+                  <mat-button-toggle value="single">
+                    <mat-icon>edit</mat-icon>
+                    Single Message
+                  </mat-button-toggle>
+                  <mat-button-toggle value="batch">
+                    <mat-icon>upload_file</mat-icon>
+                    Batch from Files
+                  </mat-button-toggle>
+                </mat-button-toggle-group>
+              </div>
+
+              <!-- Single Message Mode -->
+              <div class="producer-form" *ngIf="produceMode === 'single'">
+                <div class="form-row">
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field flex-2">
+                    <mat-label>Message Key (optional)</mat-label>
+                    <input matInput [(ngModel)]="produceRequest.key" placeholder="Enter key">
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Partition</mat-label>
+                    <mat-select [(ngModel)]="produceRequest.partition">
+                      <mat-option [value]="undefined">Auto</mat-option>
+                      <mat-option *ngFor="let p of partitionInfoList" [value]="p.partitionId">
+                        Partition {{ p.partitionId }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+
+                <div class="form-row">
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Key Serialization</mat-label>
+                    <mat-select [(ngModel)]="produceRequest.keySerialization">
+                      <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+                        {{ type.name }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Value Serialization</mat-label>
+                    <mat-select [(ngModel)]="produceRequest.valueSerialization" (selectionChange)="onValueSerializationChange()">
+                      <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+                        {{ type.name }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+
+                <!-- Message Value Editor -->
+                <div class="producer-editor-container">
+                  <div class="editor-header">
+                    <span class="editor-label">Message Value</span>
+                    <span class="editor-hint">
+                      {{ produceRequest.valueSerialization === SerializationType.Json ? 'Enter valid JSON' : 
+                         produceRequest.valueSerialization === SerializationType.Xml ? 'Enter valid XML' : 'Enter message content' }}
+                    </span>
+                  </div>
+                  <div class="monaco-editor-wrapper">
+                    <ngx-monaco-editor
+                      [options]="producerEditorOptions"
+                      [(ngModel)]="produceRequest.message">
+                    </ngx-monaco-editor>
+                  </div>
+                </div>
+
+                <!-- Headers -->
+                <mat-expansion-panel class="headers-panel">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      <mat-icon>label</mat-icon>
+                      Headers ({{ produceHeaders.length }})
+                    </mat-panel-title>
+                  </mat-expansion-panel-header>
+                  <div class="headers-editor">
+                    <div *ngFor="let header of produceHeaders; let i = index" class="header-row">
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                        <mat-label>Key</mat-label>
+                        <input matInput [(ngModel)]="header.key" placeholder="Key">
+                      </mat-form-field>
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                        <mat-label>Value</mat-label>
+                        <input matInput [(ngModel)]="header.value" placeholder="Value">
+                      </mat-form-field>
+                      <button mat-icon-button color="warn" (click)="removeHeader(i)">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                    <button mat-stroked-button (click)="addHeader()">
+                      <mat-icon>add</mat-icon>
+                      Add Header
+                    </button>
+                  </div>
+                </mat-expansion-panel>
+
+                <div class="produce-actions">
+                  <button mat-raised-button color="primary" 
+                          (click)="produceMessage()"
+                          [disabled]="!produceRequest.message || isProducing">
+                    <mat-icon>{{ isProducing ? 'hourglass_empty' : 'send' }}</mat-icon>
+                    {{ isProducing ? 'Sending...' : 'Send Message' }}
+                  </button>
+                  <button mat-stroked-button (click)="clearProduceForm()">
+                    <mat-icon>clear</mat-icon>
+                    Clear
+                  </button>
+                </div>
+
+                <!-- Result -->
+                <div *ngIf="produceResult" class="produce-result" 
+                     [class.success]="produceResult.status === 'Success'"
+                     [class.error]="produceResult.status !== 'Success'">
+                  <mat-icon>{{ produceResult.status === 'Success' ? 'check_circle' : 'error' }}</mat-icon>
+                  <div class="result-info">
+                    <span class="result-title">{{ produceResult.status === 'Success' ? 'Message Sent!' : 'Failed' }}</span>
+                    <span class="result-detail" *ngIf="produceResult.status === 'Success'">
+                      Partition: {{ produceResult.partition }} | Offset: {{ produceResult.offset }}
+                    </span>
+                    <span class="result-detail" *ngIf="produceResult.status !== 'Success'">
+                      {{ produceResult.status }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Batch Mode -->
+              <div class="batch-producer" *ngIf="produceMode === 'batch'">
+                <!-- File Upload Area -->
+                <div class="batch-section">
+                  <h4 class="batch-section-title">
+                    <mat-icon>folder_open</mat-icon>
+                    1. Upload Files
+                  </h4>
+                  <div class="file-drop-zone" 
+                       [class.drag-over]="batchDragOver"
+                       (dragover)="onBatchDragOver($event)"
+                       (dragleave)="onBatchDragLeave($event)"
+                       (drop)="onBatchDrop($event)">
+                    <input type="file" 
+                           #fileInput 
+                           multiple 
+                           (change)="onBatchFileSelect($event)" 
+                           style="display: none;">
+                    <mat-icon class="drop-icon">cloud_upload</mat-icon>
+                    <p class="drop-text">Drag & drop files here or <a (click)="fileInput.click()">browse</a></p>
+                    <p class="drop-hint">Each file will be sent as a separate message</p>
+                  </div>
+
+                  <!-- File List -->
+                  <div class="batch-files" *ngIf="batchFiles.length > 0">
+                    <div class="batch-files-header">
+                      <span>{{ batchFiles.length }} file(s) selected</span>
+                      <button mat-stroked-button color="warn" (click)="clearBatchFiles()">
+                        <mat-icon>clear_all</mat-icon>
+                        Clear All
+                      </button>
+                    </div>
+                    <div class="file-list">
+                      <div *ngFor="let file of batchFiles; let i = index" class="file-item">
+                        <mat-icon class="file-icon">description</mat-icon>
+                        <div class="file-details">
+                          <span class="file-name">{{ file.name }}</span>
+                          <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                        </div>
+                        <button mat-icon-button color="warn" (click)="removeBatchFile(i)">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Expression Bindings -->
+                <div class="batch-section">
+                  <h4 class="batch-section-title">
+                    <mat-icon>functions</mat-icon>
+                    2. Define Variables
+                  </h4>
+                  <p class="batch-section-hint">
+                    Create variables using expressions. Use <code>FileContent</code> for file data.
+                  </p>
+                  <div class="expressions-list">
+                    <div *ngFor="let expr of batchExpressions; let i = index" class="expression-row">
+                      <span class="expr-prefix">$$</span>
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field var-name-field">
+                        <mat-label>Variable</mat-label>
+                        <input matInput [(ngModel)]="expr.variable" placeholder="payload">
+                      </mat-form-field>
+                      <span class="expr-equals">=</span>
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field expr-field">
+                        <mat-label>Expression</mat-label>
+                        <input matInput [(ngModel)]="expr.expression" placeholder="FileContent.ToBase64String()">
+                        <mat-hint>{{ expr.expression ? '' : 'e.g., FileContent.ToBase64String()' }}</mat-hint>
+                      </mat-form-field>
+                      <button mat-icon-button color="warn" (click)="removeBatchExpression(i)" 
+                              [disabled]="batchExpressions.length === 1">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                    <button mat-stroked-button (click)="addBatchExpression()">
+                      <mat-icon>add</mat-icon>
+                      Add Variable
+                    </button>
+                  </div>
+                  <div class="expression-examples">
+                    <span class="examples-label">Examples:</span>
+                    <mat-chip-set>
+                      <mat-chip *ngFor="let ex of getBatchExpressionExamples()" 
+                                (click)="batchExpressions[0].expression = ex">
+                        {{ ex }}
+                      </mat-chip>
+                    </mat-chip-set>
+                  </div>
+                </div>
+
+                <!-- Message Template -->
+                <div class="batch-section">
+                  <h4 class="batch-section-title">
+                    <mat-icon>code</mat-icon>
+                    3. Message Template
+                  </h4>
+                  <p class="batch-section-hint">
+                    Use <code>$$variable</code> placeholders in your template. They will be replaced with evaluated expressions.
+                  </p>
+                  <mat-form-field appearance="fill" class="full-width template-field">
+                    <mat-label>Message Template</mat-label>
+                    <textarea matInput 
+                              [(ngModel)]="batchMessageTemplate" 
+                              rows="6"
+                              placeholder='{ "payload": "$$payload", "type": "document" }'></textarea>
+                  </mat-form-field>
+                  <div class="template-preview" *ngIf="batchExpressions.length > 0">
+                    <span class="preview-label">Variables in template:</span>
+                    <mat-chip-set>
+                      <mat-chip *ngFor="let expr of batchExpressions" [class.used]="batchMessageTemplate.includes('$$' + expr.variable)">
+                        <mat-icon matChipTrailingIcon>{{ batchMessageTemplate.includes('$$' + expr.variable) ? 'check' : 'warning' }}</mat-icon>
+                        $${{ expr.variable }}
+                      </mat-chip>
+                    </mat-chip-set>
+                  </div>
+                </div>
+
+                <!-- Shared Settings (Key, Partition, Serialization) -->
+                <mat-expansion-panel class="batch-settings-panel">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      <mat-icon>tune</mat-icon>
+                      Message Settings
+                    </mat-panel-title>
+                  </mat-expansion-panel-header>
+                  <div class="batch-settings-content">
+                    <div class="form-row">
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field flex-2">
+                        <mat-label>Message Key (optional)</mat-label>
+                        <input matInput [(ngModel)]="produceRequest.key" placeholder="Enter key">
+                      </mat-form-field>
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                        <mat-label>Partition</mat-label>
+                        <mat-select [(ngModel)]="produceRequest.partition">
+                          <mat-option [value]="undefined">Auto</mat-option>
+                          <mat-option *ngFor="let p of partitionInfoList" [value]="p.partitionId">
+                            Partition {{ p.partitionId }}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+                    <div class="form-row">
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                        <mat-label>Key Serialization</mat-label>
+                        <mat-select [(ngModel)]="produceRequest.keySerialization">
+                          <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+                            {{ type.name }}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                        <mat-label>Value Serialization</mat-label>
+                        <mat-select [(ngModel)]="produceRequest.valueSerialization">
+                          <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+                            {{ type.name }}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+
+                    <!-- Headers for Batch -->
+                    <div class="headers-editor">
+                      <div class="headers-label">Headers ({{ produceHeaders.length }})</div>
+                      <div *ngFor="let header of produceHeaders; let i = index" class="header-row">
+                        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                          <mat-label>Key</mat-label>
+                          <input matInput [(ngModel)]="header.key" placeholder="Key">
+                        </mat-form-field>
+                        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                          <mat-label>Value</mat-label>
+                          <input matInput [(ngModel)]="header.value" placeholder="Value">
+                        </mat-form-field>
+                        <button mat-icon-button color="warn" (click)="removeHeader(i)">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </div>
+                      <button mat-stroked-button (click)="addHeader()">
+                        <mat-icon>add</mat-icon>
+                        Add Header
+                      </button>
+                    </div>
+                  </div>
+                </mat-expansion-panel>
+
+                <!-- Progress & Actions -->
+                <div class="batch-actions">
+                  <button mat-raised-button color="primary" 
+                          (click)="produceBatch()"
+                          [disabled]="batchFiles.length === 0 || isBatchProducing">
+                    <mat-icon>{{ isBatchProducing ? 'hourglass_empty' : 'send' }}</mat-icon>
+                    {{ isBatchProducing ? 'Sending...' : 'Send All (' + batchFiles.length + ')' }}
+                  </button>
+                  <button mat-stroked-button (click)="clearBatchFiles()" [disabled]="isBatchProducing">
+                    <mat-icon>clear</mat-icon>
+                    Clear
+                  </button>
+                </div>
+
+                <!-- Progress Bar -->
+                <div *ngIf="isBatchProducing" class="batch-progress">
+                  <mat-progress-bar mode="determinate" [value]="batchProgress"></mat-progress-bar>
+                  <span class="progress-text">{{ batchProgress }}%</span>
+                </div>
+
+                <!-- Batch Results -->
+                <div *ngIf="batchResults.length > 0" class="batch-results">
+                  <h4 class="results-title">
+                    <mat-icon>checklist</mat-icon>
+                    Results
+                  </h4>
+                  <div class="results-summary">
+                    <span class="success-count">
+                      <mat-icon>check_circle</mat-icon>
+                      {{ getBatchSuccessCount() }} succeeded
+                    </span>
+                    <span class="error-count" *ngIf="getBatchFailureCount() > 0">
+                      <mat-icon>error</mat-icon>
+                      {{ getBatchFailureCount() }} failed
+                    </span>
+                  </div>
+                  <div class="results-list">
+                    <div *ngFor="let result of batchResults" 
+                         class="result-item" 
+                         [class.success]="result.success"
+                         [class.error]="!result.success">
+                      <mat-icon>{{ result.success ? 'check_circle' : 'error' }}</mat-icon>
+                      <span class="result-file">{{ result.fileName }}</span>
+                      <span class="result-detail" *ngIf="result.success">
+                        P{{ result.partition }} O{{ result.offset }}
+                      </span>
+                      <span class="result-error" *ngIf="!result.success">
+                        {{ result.error }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </mat-tab>
+
+          <!-- Settings Tab -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>settings</mat-icon>
+              <span>Settings</span>
+            </ng-template>
+            <div class="tab-content settings-tab">
+              <app-topic-settings
+                [configurations]="topicDetails?.configurations || null"
+                (deleteRequested)="confirmDelete()">
+              </app-topic-settings>
+            </div>
+          </mat-tab>
+
+          <!-- Statistics Tab -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>bar_chart</mat-icon>
+              <span>Statistics</span>
+            </ng-template>
+            <div class="tab-content">
+              <app-topic-statistics
+                [totalMessages]="topicWatermarks?.totalMessages || 0"
+                [partitionCount]="topicDetails?.partitionCount || 0"
+                [replicationFactor]="topicDetails?.replicationFactor || 0"
+                [isHealthy]="isHealthy()"
+                [healthDescription]="getHealthDescription()"
+                [partitions]="statisticsPartitions">
+              </app-topic-statistics>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
+      </mat-card>
+
+      <!-- Delete Confirmation -->
+      <div *ngIf="showDeleteConfirm" class="modal-overlay" (click)="showDeleteConfirm = false">
+        <mat-card class="delete-modal" (click)="$event.stopPropagation()">
+          <mat-card-header>
+            <mat-icon mat-card-avatar color="warn">warning</mat-icon>
+            <mat-card-title>Delete Topic</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Are you sure you want to delete <strong>{{ topicName }}</strong>?</p>
+            <p class="warning-text">This action cannot be undone. All messages will be lost.</p>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button mat-button (click)="showDeleteConfirm = false">Cancel</button>
+            <button mat-raised-button color="warn" (click)="deleteTopic()" [disabled]="isDeleting">
+              {{ isDeleting ? 'Deleting...' : 'Delete' }}
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+
+      <!-- Message Preview Modal -->
+      <div *ngIf="showPreviewModal" class="modal-overlay preview-overlay" (click)="closePreview()">
+        <mat-card class="preview-modal" (click)="$event.stopPropagation()">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>{{ previewType === 'key' ? 'vpn_key' : 'article' }}</mat-icon>
+            <mat-card-title>{{ previewType === 'key' ? 'Message Key' : 'Message Value' }}</mat-card-title>
+            <mat-card-subtitle *ngIf="previewMessage">
+              Partition {{ previewMessage.partition }} | Offset {{ previewMessage.offset }}
+            </mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <!-- Viewer Mode Selector -->
+            <div class="viewer-toolbar">
+              <mat-button-toggle-group [(ngModel)]="previewMode" class="viewer-toggles">
+                <mat-button-toggle value="text">
+                  <mat-icon>text_fields</mat-icon>
+                  Text
+                </mat-button-toggle>
+                <mat-button-toggle value="json" [disabled]="!isValidJson(previewContent)">
+                  <mat-icon>data_object</mat-icon>
+                  JSON
+                </mat-button-toggle>
+                <mat-button-toggle value="xml" [disabled]="!isValidXml(previewContent)">
+                  <mat-icon>code</mat-icon>
+                  XML
+                </mat-button-toggle>
+                <mat-button-toggle value="tree" [disabled]="!isValidJson(previewContent)">
+                  <mat-icon>account_tree</mat-icon>
+                  Tree
+                </mat-button-toggle>
+                <mat-button-toggle value="expression">
+                  <mat-icon>functions</mat-icon>
+                  Expression
+                </mat-button-toggle>
+              </mat-button-toggle-group>
+              
+              <div class="toolbar-actions">
+                <button *ngIf="previewMode === 'tree'" mat-icon-button matTooltip="Expand All" (click)="expandAll()">
+                  <mat-icon>unfold_more</mat-icon>
+                </button>
+                <button *ngIf="previewMode === 'tree'" mat-icon-button matTooltip="Collapse All" (click)="collapseAll()">
+                  <mat-icon>unfold_less</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Copy to clipboard" (click)="copyToClipboard(previewContent)">
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Download" (click)="downloadContent()">
+                  <mat-icon>download</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Content Display -->
+            <div class="preview-content-container">
+              <!-- Text View -->
+              <pre *ngIf="previewMode === 'text'" class="preview-content text-view">{{ previewContent }}</pre>
+              
+              <!-- JSON View -->
+              <pre *ngIf="previewMode === 'json'" class="preview-content json-view"><code [innerHTML]="highlightJson(previewContent)"></code></pre>
+              
+              <!-- XML View -->
+              <div *ngIf="previewMode === 'xml'" class="xml-monaco-view">
+                <ngx-monaco-editor [options]="xmlEditorOptions" [(ngModel)]="formattedXmlContent"></ngx-monaco-editor>
+              </div>
+              
+              <!-- Tree View -->
+              <div *ngIf="previewMode === 'tree'" class="tree-view">
+                <div *ngIf="parsedJson !== null" class="json-tree">
+                  <ng-container *ngTemplateOutlet="treeNode; context: { $implicit: parsedJson, path: 'root', level: 0, key: 'root', isRoot: true }"></ng-container>
+                </div>
+                <div *ngIf="parsedJson === null" class="tree-error">
+                  <mat-icon>error_outline</mat-icon>
+                  <span>Unable to parse content as JSON</span>
+                </div>
+              </div>
+
+              <!-- Expression View -->
+              <div *ngIf="previewMode === 'expression'" class="expression-view">
+                <div class="expression-input-section">
+                  <mat-form-field appearance="fill" class="expression-field">
+                    <mat-label>Expression</mat-label>
+                    <input matInput [(ngModel)]="expressionInput" 
+                           placeholder="Json(Value).payload.ToStringFromBase64()" 
+                           (keyup.enter)="evaluateExpression()">
+                    <mat-hint>Press Enter or click Evaluate to run</mat-hint>
+                  </mat-form-field>
+                  <button mat-raised-button color="primary" (click)="evaluateExpression()">
+                    <mat-icon>play_arrow</mat-icon>
+                    Evaluate
+                  </button>
+                </div>
+                
+                <div class="expression-examples">
+                  <span class="examples-label">Examples:</span>
+                  <button *ngFor="let ex of expressionExamples" 
+                          mat-stroked-button 
+                          class="example-chip"
+                          (click)="expressionInput = ex; evaluateExpression()">
+                    {{ ex }}
+                  </button>
+                </div>
+                
+                <mat-divider></mat-divider>
+                
+                <div *ngIf="expressionError" class="expression-error">
+                  <mat-icon>error</mat-icon>
+                  {{ expressionError }}
+                </div>
+                
+                <div *ngIf="expressionResult !== null && !expressionError" class="expression-result">
+                  <div class="result-toolbar">
+                    <mat-button-toggle-group [(ngModel)]="expressionViewMode" class="result-toggles">
+                      <mat-button-toggle value="text">Text</mat-button-toggle>
+                      <mat-button-toggle value="json" [disabled]="!isValidJson(getExpressionResultString())">JSON</mat-button-toggle>
+                      <mat-button-toggle value="xml" [disabled]="!isValidXml(getExpressionResultString())">XML</mat-button-toggle>
+                      <mat-button-toggle value="tree" [disabled]="!isValidJson(getExpressionResultString())">Tree</mat-button-toggle>
+                    </mat-button-toggle-group>
+                    <button mat-icon-button matTooltip="Copy result" (click)="copyToClipboard(getExpressionResultString())">
+                      <mat-icon>content_copy</mat-icon>
+                    </button>
+                  </div>
+                  
+                  <div class="result-content">
+                    <pre *ngIf="expressionViewMode === 'text'" class="preview-content text-view">{{ getExpressionResultString() }}</pre>
+                    <pre *ngIf="expressionViewMode === 'json'" class="preview-content json-view"><code [innerHTML]="highlightJson(getExpressionResultString())"></code></pre>
+                    <div *ngIf="expressionViewMode === 'xml'" class="xml-monaco-view">
+                      <ngx-monaco-editor [options]="xmlEditorOptions" [(ngModel)]="formattedExpressionXml"></ngx-monaco-editor>
+                    </div>
+                    <div *ngIf="expressionViewMode === 'tree' && expressionParsedJson !== null" class="tree-view inline-tree">
+                      <ng-container *ngTemplateOutlet="expressionTreeNode; context: { $implicit: expressionParsedJson, path: 'expr-root', level: 0, key: 'result', isRoot: true }"></ng-container>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-actions align="end">
+            <button mat-button (click)="closePreview()">Close</button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+
+      <!-- Recursive Tree Node Template (shared) -->
+      <ng-template #treeNode let-node let-path="path" let-level="level" let-key="key" let-isRoot="isRoot">
+        <div class="tree-node" [style.padding-left.px]="level * 20">
+          <div *ngIf="isExpandable(node)" class="tree-node-header expandable" (click)="toggleNode(path)">
+            <mat-icon class="expand-icon" [class.expanded]="isNodeExpanded(path)">
+              chevron_right
+            </mat-icon>
+            <mat-icon class="type-icon">{{ isArray(node) ? 'data_array' : 'data_object' }}</mat-icon>
+            <span class="node-key">{{ key }}</span>
+            <span class="node-type">
+              {{ isArray(node) ? '[' + node.length + ']' : '{' + getObjectKeys(node).length + '}' }}
+            </span>
+          </div>
+          <div *ngIf="!isExpandable(node) && !isRoot" class="tree-node-header leaf">
+            <span class="node-key">{{ key }}:</span>
+            <span [class]="getValueClass(node)" class="node-value">{{ formatTreeValue(node) }}</span>
+          </div>
+          <div *ngIf="isExpandable(node) && isNodeExpanded(path)" class="tree-children">
+            <ng-container *ngFor="let entry of getObjectEntries(node)">
+              <ng-container *ngTemplateOutlet="treeNode; context: { 
+                $implicit: entry.value, 
+                path: getNodePath(path, entry.key), 
+                level: level + 1, 
+                key: entry.key,
+                isRoot: false 
+              }"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </ng-template>
+
+      <!-- Expression Tree Node Template (shared) -->
+      <ng-template #expressionTreeNode let-node let-path="path" let-level="level" let-key="key" let-isRoot="isRoot">
+        <div class="tree-node" [style.padding-left.px]="level * 20">
+          <div *ngIf="isExpandable(node)" class="tree-node-header expandable" (click)="toggleExpressionNode(path)">
+            <mat-icon class="expand-icon" [class.expanded]="isExpressionNodeExpanded(path)">
+              chevron_right
+            </mat-icon>
+            <mat-icon class="type-icon">{{ isArray(node) ? 'data_array' : 'data_object' }}</mat-icon>
+            <span class="node-key">{{ key }}</span>
+            <span class="node-type">
+              {{ isArray(node) ? '[' + node.length + ']' : '{' + getObjectKeys(node).length + '}' }}
+            </span>
+          </div>
+          <div *ngIf="!isExpandable(node) && !isRoot" class="tree-node-header leaf">
+            <span class="node-key">{{ key }}:</span>
+            <span [class]="getValueClass(node)" class="node-value">{{ formatTreeValue(node) }}</span>
+          </div>
+          <div *ngIf="isExpandable(node) && isExpressionNodeExpanded(path)" class="tree-children">
+            <ng-container *ngFor="let entry of getObjectEntries(node)">
+              <ng-container *ngTemplateOutlet="expressionTreeNode; context: { 
+                $implicit: entry.value, 
+                path: getNodePath(path, entry.key), 
+                level: level + 1, 
+                key: entry.key,
+                isRoot: false 
+              }"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </ng-template>
+    </div>
+    <!-- Simple Content Modal -->
+    <div *ngIf="showContentModal" class="modal-overlay content-modal-overlay" (click)="closeContentModal()">
+      <div class="content-modal" (click)="$event.stopPropagation()">
+        <div class="content-modal-header">
+          <div class="content-modal-title">
+            <mat-icon>{{ contentModalMode === 'json' ? 'data_object' : contentModalMode === 'xml' ? 'code' : 'text_fields' }}</mat-icon>
+            <span>{{ contentModalMode === 'json' ? 'JSON' : contentModalMode === 'xml' ? 'XML' : 'Text' }} Content</span>
+          </div>
+          <div class="content-modal-actions">
+            <mat-button-toggle-group [(ngModel)]="contentModalMode" class="mode-toggles">
+              <mat-button-toggle value="text">Text</mat-button-toggle>
+              <mat-button-toggle value="json" [disabled]="!isValidJson(contentModalData)">JSON</mat-button-toggle>
+              <mat-button-toggle value="xml" [disabled]="!isValidXml(contentModalData)">XML</mat-button-toggle>
+            </mat-button-toggle-group>
+            <button mat-icon-button matTooltip="Copy" (click)="copyToClipboard(contentModalData)">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Close" (click)="closeContentModal()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+        <div class="content-modal-body">
+          <pre *ngIf="contentModalMode === 'text'" class="content-display text-view">{{ contentModalData }}</pre>
+          <pre *ngIf="contentModalMode === 'json'" class="content-display json-view"><code [innerHTML]="highlightJson(contentModalData)"></code></pre>
+          <div *ngIf="contentModalMode === 'xml'" class="content-display xml-monaco-view">
+            <ngx-monaco-editor [options]="xmlEditorOptions" [(ngModel)]="formattedXmlContent"></ngx-monaco-editor>
+          </div>
+        </div>
+      </div>
+    </div>

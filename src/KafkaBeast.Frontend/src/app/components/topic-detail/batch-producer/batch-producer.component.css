@@ -1,0 +1,457 @@
+:host {
+  display: block;
+}
+
+.batch-producer {
+  max-width: 900px;
+}
+
+.batch-section {
+  margin-bottom: 32px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.batch-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.batch-section-title mat-icon {
+  color: var(--primary-color);
+}
+
+.batch-section-hint {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.batch-section-hint code {
+  background: rgba(99, 102, 241, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--primary-color);
+}
+
+/* File Drop Zone */
+.file-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-drop-zone:hover {
+  border-color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.file-drop-zone.drag-over {
+  border-color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.1);
+  transform: scale(1.02);
+}
+
+.drop-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.drop-text {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.drop-text a {
+  color: var(--primary-color);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.drop-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Batch Files List */
+.batch-files {
+  margin-top: 16px;
+}
+
+.batch-files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.file-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-item:hover {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.file-icon {
+  color: var(--primary-color);
+}
+
+.file-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.file-size {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Expression Bindings */
+.expressions-list {
+  margin-bottom: 16px;
+}
+
+.expression-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.expr-prefix {
+  font-family: 'Fira Code', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.expr-equals {
+  font-family: 'Fira Code', monospace;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.var-name-field {
+  width: 120px;
+  flex: 0 0 120px;
+}
+
+.expr-field {
+  flex: 1;
+}
+
+.expression-examples {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.examples-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-top: 6px;
+}
+
+.expression-examples mat-chip {
+  cursor: pointer;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+}
+
+.expression-examples mat-chip:hover {
+  background: var(--primary-color) !important;
+  color: white !important;
+}
+
+/* Template Preview */
+.full-width {
+  width: 100%;
+}
+
+.template-field textarea {
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+}
+
+.template-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.preview-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.template-preview mat-chip {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+}
+
+.template-preview mat-chip.used {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: var(--success-color) !important;
+}
+
+.template-preview mat-chip:not(.used) {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: var(--warning-color) !important;
+}
+
+/* Batch Settings Panel */
+.batch-settings-panel {
+  margin-bottom: 24px;
+}
+
+.batch-settings-content {
+  padding: 16px 0;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-row mat-form-field {
+  flex: 1;
+}
+
+.form-row .flex-2 {
+  flex: 2;
+}
+
+.headers-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.headers-editor {
+  padding: 16px 0;
+}
+
+.header-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.header-row mat-form-field {
+  flex: 1;
+  margin-bottom: 0 !important;
+}
+
+/* Batch Actions & Progress */
+.batch-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.batch-progress {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.batch-progress mat-progress-bar {
+  flex: 1;
+}
+
+.progress-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-color);
+  min-width: 40px;
+}
+
+/* Batch Results */
+.batch-results {
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.results-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.results-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.success-count, .error-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.success-count {
+  color: var(--success-color);
+}
+
+.error-count {
+  color: var(--warn-color);
+}
+
+.results-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.result-item.success mat-icon {
+  color: var(--success-color);
+}
+
+.result-item.error mat-icon {
+  color: var(--warn-color);
+}
+
+.result-file {
+  flex: 1;
+  font-weight: 500;
+}
+
+.result-detail {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.result-error {
+  font-size: 12px;
+  color: var(--warn-color);
+}
+
+/* Dense field */
+.dense-field {
+  font-size: 13px;
+}
+
+/* Expression Autocomplete */
+::ng-deep .expression-autocomplete {
+  max-height: 400px !important;
+}
+
+::ng-deep .expression-autocomplete .mat-mdc-optgroup-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.08);
+  padding: 8px 16px;
+  min-height: 32px;
+}
+
+::ng-deep .expression-autocomplete .mat-mdc-option {
+  min-height: 48px;
+  padding: 8px 16px 8px 24px;
+}
+
+.autocomplete-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.autocomplete-option .option-expr {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.autocomplete-option .option-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+::ng-deep .expression-autocomplete .mat-mdc-option:hover .option-expr {
+  color: var(--primary-color-dark, #4f46e5);
+}

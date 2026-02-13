@@ -8,19 +8,22 @@ namespace KafkaBeast.Dashboard.Services;
 public class KafkaConsumerService
 {
     private readonly KafkaConnectionService _connectionService;
+    private readonly SerializationService _serializationService;
     private readonly ILogger<KafkaConsumerService> _logger;
-    private readonly ConcurrentDictionary<string, IConsumer<string, string>> _consumers = new();
+    private readonly ConcurrentDictionary<string, IConsumer<byte[], byte[]>> _consumers = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _cancellationTokens = new();
 
     public KafkaConsumerService(
         KafkaConnectionService connectionService,
+        SerializationService serializationService,
         ILogger<KafkaConsumerService> logger)
     {
         _connectionService = connectionService;
+        _serializationService = serializationService;
         _logger = logger;
     }
 
-    private IConsumer<string, string> CreateConsumer(string connectionId, ConsumeMessageRequest request)
+    private IConsumer<byte[], byte[]> CreateConsumer(string connectionId, ConsumeMessageRequest request)
     {
         var connection = _connectionService.GetConnectionAsync(connectionId).Result;
         if (connection == null)
@@ -44,8 +47,53 @@ public class KafkaConsumerService
             }
         }
 
-        var builder = new ConsumerBuilder<string, string>(config);
+        var builder = new ConsumerBuilder<byte[], byte[]>(config);
         return builder.Build();
+    }
+
+    private ConsumedMessage CreateConsumedMessage(ConsumeResult<byte[], byte[]> result, ConsumeMessageRequest request)
+    {
+        var config = new SerializationConfig
+        {
+            KeySerialization = request.KeySerialization,
+            ValueSerialization = request.ValueSerialization,
+            SchemaRegistryUrl = request.SchemaRegistryUrl,
+            AvroSchema = request.AvroSchema,
+            ProtobufSchema = request.ProtobufSchema,
+            PrettyPrintJson = true
+        };
+
+        // Deserialize key
+        var (keyValue, keyError) = _serializationService.Deserialize(result.Message.Key, request.KeySerialization, config);
+        
+        // Deserialize value
+        var (valueValue, valueError) = _serializationService.Deserialize(result.Message.Value, request.ValueSerialization, config);
+
+        var consumedMessage = new ConsumedMessage
+        {
+            Topic = result.Topic,
+            Key = keyValue,
+            Value = valueValue ?? string.Empty,
+            RawKeyBase64 = result.Message.Key != null ? Convert.ToBase64String(result.Message.Key) : null,
+            RawValueBase64 = result.Message.Value != null ? Convert.ToBase64String(result.Message.Value) : null,
+            Offset = result.Offset.Value,
+            Partition = result.Partition.Value,
+            Timestamp = result.Message.Timestamp.UtcDateTime,
+            KeySerializationType = request.KeySerialization,
+            ValueSerializationType = request.ValueSerialization,
+            DeserializationError = keyError ?? valueError
+        };
+
+        if (result.Message.Headers != null)
+        {
+            consumedMessage.Headers = new Dictionary<string, string>();
+            foreach (var header in result.Message.Headers)
+            {
+                consumedMessage.Headers[header.Key] = Encoding.UTF8.GetString(header.GetValueBytes());
+            }
+        }
+
+        return consumedMessage;
     }
 
     public Task<List<ConsumedMessage>> ConsumeMessagesAsync(
@@ -54,7 +102,7 @@ public class KafkaConsumerService
         TimeSpan? timeout = null)
     {
         var messages = new List<ConsumedMessage>();
-        IConsumer<string, string>? consumer = null;
+        IConsumer<byte[], byte[]>? consumer = null;
 
         try
         {
@@ -72,27 +120,12 @@ public class KafkaConsumerService
                 if (result == null)
                     break;
 
-                var consumedMessage = new ConsumedMessage
-                {
-                    Topic = result.Topic,
-                    Key = result.Message.Key,
-                    Value = result.Message.Value ?? string.Empty,
-                    Offset = result.Offset.Value,
-                    Partition = result.Partition.Value,
-                    Timestamp = result.Message.Timestamp.UtcDateTime
-                };
-
-                if (result.Message.Headers != null)
-                {
-                    consumedMessage.Headers = new Dictionary<string, string>();
-                    foreach (var header in result.Message.Headers)
-                    {
-                        consumedMessage.Headers[header.Key] = Encoding.UTF8.GetString(header.GetValueBytes());
-                    }
-                }
-
+                var consumedMessage = CreateConsumedMessage(result, request);
                 messages.Add(consumedMessage);
             }
+
+            _logger.LogInformation("Consumed {Count} messages from topic {Topic} with {KeyType}/{ValueType} deserialization", 
+                messages.Count, request.Topic, request.KeySerialization, request.ValueSerialization);
 
             return Task.FromResult(messages);
         }
@@ -123,33 +156,15 @@ public class KafkaConsumerService
             _consumers[consumerId] = consumer;
             consumer.Subscribe(request.Topic);
 
-            _logger.LogInformation("Started continuous consumption from topic {Topic}", request.Topic);
+            _logger.LogInformation("Started continuous consumption from topic {Topic} with {KeyType}/{ValueType} deserialization", 
+                request.Topic, request.KeySerialization, request.ValueSerialization);
 
             while (!cts.Token.IsCancellationRequested)
             {
                 try
                 {
                     var result = consumer.Consume(cts.Token);
-
-                    var consumedMessage = new ConsumedMessage
-                    {
-                        Topic = result.Topic,
-                        Key = result.Message.Key,
-                        Value = result.Message.Value ?? string.Empty,
-                        Offset = result.Offset.Value,
-                        Partition = result.Partition.Value,
-                        Timestamp = result.Message.Timestamp.UtcDateTime
-                    };
-
-                    if (result.Message.Headers != null)
-                    {
-                        consumedMessage.Headers = new Dictionary<string, string>();
-                        foreach (var header in result.Message.Headers)
-                        {
-                            consumedMessage.Headers[header.Key] = Encoding.UTF8.GetString(header.GetValueBytes());
-                        }
-                    }
-
+                    var consumedMessage = CreateConsumedMessage(result, request);
                     await onMessage(consumedMessage);
                 }
                 catch (ConsumeException ex)

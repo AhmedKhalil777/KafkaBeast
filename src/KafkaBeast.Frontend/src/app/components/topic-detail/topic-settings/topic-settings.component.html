@@ -1,0 +1,244 @@
+<div class="topic-settings">
+  <!-- Header with Search -->
+  <div class="settings-header">
+    <div class="settings-title-section">
+      <h3 class="section-title">
+        <mat-icon>tune</mat-icon>
+        Advanced Configuration
+      </h3>
+      <p class="settings-subtitle">Topic configuration settings and their current values</p>
+    </div>
+    
+    <mat-form-field appearance="fill" class="config-search" subscriptSizing="dynamic">
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [(ngModel)]="searchQuery" placeholder="Search configurations...">
+      <button *ngIf="searchQuery" mat-icon-button matSuffix (click)="clearSearch()">
+        <mat-icon>clear</mat-icon>
+      </button>
+    </mat-form-field>
+  </div>
+
+  <!-- Configuration Categories -->
+  <div class="config-categories" *ngIf="configurations">
+    <mat-accordion class="config-accordion" multi>
+      <!-- Retention -->
+      <mat-expansion-panel [expanded]="isCategoryExpanded('retention')"
+                           (opened)="toggleCategory('retention', true)"
+                           (closed)="toggleCategory('retention', false)">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>{{ configCategories['retention'].icon }}</mat-icon>
+            {{ configCategories['retention'].label }}
+          </mat-panel-title>
+          <mat-panel-description>
+            <mat-chip class="config-count-chip">{{ getConfigsForCategory('retention').length }}</mat-chip>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <div class="config-grid">
+          <div *ngFor="let config of getConfigsForCategory('retention')" class="config-card">
+            <div class="config-key-row">
+              <code class="config-key">{{ config.key }}</code>
+              <mat-chip *ngIf="getConfigChipColor(config.key, config.value)" 
+                        [color]="getConfigChipColor(config.key, config.value)" 
+                        class="config-indicator">!</mat-chip>
+            </div>
+            <div class="config-value">
+              <span class="formatted-value">{{ formatConfigValue(config.key, config.value) }}</span>
+              <span *ngIf="formatConfigValue(config.key, config.value) !== config.value" class="raw-value">
+                ({{ config.value }})
+              </span>
+            </div>
+            <div *ngIf="config.description" class="config-description">{{ config.description }}</div>
+          </div>
+        </div>
+        <div *ngIf="getConfigsForCategory('retention').length === 0" class="no-configs">
+          No retention configurations match your search
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Performance -->
+      <mat-expansion-panel [expanded]="isCategoryExpanded('performance')"
+                           (opened)="toggleCategory('performance', true)"
+                           (closed)="toggleCategory('performance', false)">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>{{ configCategories['performance'].icon }}</mat-icon>
+            {{ configCategories['performance'].label }}
+          </mat-panel-title>
+          <mat-panel-description>
+            <mat-chip class="config-count-chip">{{ getConfigsForCategory('performance').length }}</mat-chip>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <div class="config-grid">
+          <div *ngFor="let config of getConfigsForCategory('performance')" class="config-card">
+            <div class="config-key-row">
+              <code class="config-key">{{ config.key }}</code>
+              <mat-chip *ngIf="getConfigChipColor(config.key, config.value)" 
+                        [color]="getConfigChipColor(config.key, config.value)" 
+                        class="config-indicator">!</mat-chip>
+            </div>
+            <div class="config-value">
+              <span class="formatted-value">{{ formatConfigValue(config.key, config.value) }}</span>
+              <span *ngIf="formatConfigValue(config.key, config.value) !== config.value" class="raw-value">
+                ({{ config.value }})
+              </span>
+            </div>
+            <div *ngIf="config.description" class="config-description">{{ config.description }}</div>
+          </div>
+        </div>
+        <div *ngIf="getConfigsForCategory('performance').length === 0" class="no-configs">
+          No performance configurations match your search
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Replication -->
+      <mat-expansion-panel [expanded]="isCategoryExpanded('replication')"
+                           (opened)="toggleCategory('replication', true)"
+                           (closed)="toggleCategory('replication', false)">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>{{ configCategories['replication'].icon }}</mat-icon>
+            {{ configCategories['replication'].label }}
+          </mat-panel-title>
+          <mat-panel-description>
+            <mat-chip class="config-count-chip">{{ getConfigsForCategory('replication').length }}</mat-chip>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <div class="config-grid">
+          <div *ngFor="let config of getConfigsForCategory('replication')" class="config-card">
+            <div class="config-key-row">
+              <code class="config-key">{{ config.key }}</code>
+              <mat-chip *ngIf="getConfigChipColor(config.key, config.value)" 
+                        [color]="getConfigChipColor(config.key, config.value)" 
+                        class="config-indicator">!</mat-chip>
+            </div>
+            <div class="config-value">
+              <span class="formatted-value">{{ formatConfigValue(config.key, config.value) }}</span>
+              <span *ngIf="formatConfigValue(config.key, config.value) !== config.value" class="raw-value">
+                ({{ config.value }})
+              </span>
+            </div>
+            <div *ngIf="config.description" class="config-description">{{ config.description }}</div>
+          </div>
+        </div>
+        <div *ngIf="getConfigsForCategory('replication').length === 0" class="no-configs">
+          No replication configurations match your search
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Cleanup -->
+      <mat-expansion-panel [expanded]="isCategoryExpanded('cleanup')"
+                           (opened)="toggleCategory('cleanup', true)"
+                           (closed)="toggleCategory('cleanup', false)">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>{{ configCategories['cleanup'].icon }}</mat-icon>
+            {{ configCategories['cleanup'].label }}
+          </mat-panel-title>
+          <mat-panel-description>
+            <mat-chip class="config-count-chip">{{ getConfigsForCategory('cleanup').length }}</mat-chip>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <div class="config-grid">
+          <div *ngFor="let config of getConfigsForCategory('cleanup')" class="config-card">
+            <div class="config-key-row">
+              <code class="config-key">{{ config.key }}</code>
+              <mat-chip *ngIf="getConfigChipColor(config.key, config.value)" 
+                        [color]="getConfigChipColor(config.key, config.value)" 
+                        class="config-indicator">!</mat-chip>
+            </div>
+            <div class="config-value">
+              <span class="formatted-value">{{ formatConfigValue(config.key, config.value) }}</span>
+              <span *ngIf="formatConfigValue(config.key, config.value) !== config.value" class="raw-value">
+                ({{ config.value }})
+              </span>
+            </div>
+            <div *ngIf="config.description" class="config-description">{{ config.description }}</div>
+          </div>
+        </div>
+        <div *ngIf="getConfigsForCategory('cleanup').length === 0" class="no-configs">
+          No cleanup configurations match your search
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Other Configurations -->
+      <mat-expansion-panel *ngIf="getUncategorizedConfigs().length > 0">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>more_horiz</mat-icon>
+            Other Configurations
+          </mat-panel-title>
+          <mat-panel-description>
+            <mat-chip class="config-count-chip">{{ getUncategorizedConfigs().length }}</mat-chip>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <div class="config-grid full-width">
+          <div *ngFor="let config of getUncategorizedConfigs()" class="config-card compact">
+            <div class="config-key-row">
+              <code class="config-key">{{ config.key }}</code>
+            </div>
+            <div class="config-value">
+              <span class="formatted-value">{{ formatConfigValue(config.key, config.value) }}</span>
+            </div>
+          </div>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </div>
+
+  <!-- Quick Reference Cards -->
+  <div class="quick-reference" *ngIf="configurations">
+    <h3 class="section-title">
+      <mat-icon>bolt</mat-icon>
+      Quick Reference
+    </h3>
+    <div class="reference-cards">
+      <div class="reference-card">
+        <mat-icon>schedule</mat-icon>
+        <div class="reference-info">
+          <span class="reference-label">Retention Time</span>
+          <span class="reference-value">{{ formatConfigValue('retention.ms', configurations['retention.ms'] || '-1') }}</span>
+        </div>
+      </div>
+      <div class="reference-card">
+        <mat-icon>storage</mat-icon>
+        <div class="reference-info">
+          <span class="reference-label">Max Size</span>
+          <span class="reference-value">{{ formatConfigValue('retention.bytes', configurations['retention.bytes'] || '-1') }}</span>
+        </div>
+      </div>
+      <div class="reference-card">
+        <mat-icon>compress</mat-icon>
+        <div class="reference-info">
+          <span class="reference-label">Compression</span>
+          <span class="reference-value">{{ configurations['compression.type'] || 'producer' }}</span>
+        </div>
+      </div>
+      <div class="reference-card">
+        <mat-icon>verified</mat-icon>
+        <div class="reference-info">
+          <span class="reference-label">Min ISR</span>
+          <span class="reference-value">{{ configurations['min.insync.replicas'] || '1' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <h3 class="section-title danger-title">
+    <mat-icon>dangerous</mat-icon>
+    Danger Zone
+  </h3>
+  <div class="danger-zone">
+    <div class="danger-item">
+      <div class="danger-info">
+        <strong>Delete this topic</strong>
+        <p>Once deleted, all messages in this topic will be permanently lost.</p>
+      </div>
+      <button mat-stroked-button color="warn" (click)="confirmDelete()">
+        <mat-icon>delete_forever</mat-icon>
+        Delete Topic
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,449 @@
+<div class="consumer-groups-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <mat-icon class="page-icon">groups</mat-icon>
+      <div class="header-info">
+        <h1>Consumer Groups</h1>
+        <p class="subtitle">Monitor and manage Kafka consumer groups</p>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="connection-selector dense-field">
+        <mat-label>Connection</mat-label>
+        <mat-select [(ngModel)]="selectedConnectionId" (selectionChange)="onConnectionChange()">
+          <mat-option *ngFor="let conn of activeConnections" [value]="conn.id">
+            <mat-icon>dns</mat-icon>
+            {{ conn.name }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+      
+      <button mat-raised-button color="primary" (click)="loadConsumerGroups()" [disabled]="isLoading || !selectedConnectionId">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="48"></mat-spinner>
+    <p>Loading consumer groups...</p>
+  </div>
+
+  <!-- No Connection State -->
+  <div *ngIf="!selectedConnectionId && !isLoading" class="empty-state">
+    <mat-icon>link_off</mat-icon>
+    <h3>No Connection Selected</h3>
+    <p>Select a connection from the dropdown above to view consumer groups</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="selectedConnectionId && !isLoading && consumerGroups.length === 0" class="empty-state">
+    <mat-icon>group_off</mat-icon>
+    <h3>No Consumer Groups</h3>
+    <p>No consumer groups found for this connection</p>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content-grid" *ngIf="selectedConnectionId && !isLoading && consumerGroups.length > 0">
+    <!-- Groups List Panel -->
+    <mat-card class="groups-panel">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>list</mat-icon>
+        <mat-card-title>Consumer Groups</mat-card-title>
+        <mat-card-subtitle>{{ consumerGroups.length }} groups</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <!-- Search -->
+        <mat-form-field appearance="fill" class="search-field" subscriptSizing="dynamic">
+          <mat-label>Search groups</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput [(ngModel)]="searchQuery" placeholder="Filter by group ID...">
+          <button *ngIf="searchQuery" mat-icon-button matSuffix (click)="searchQuery = ''">
+            <mat-icon>clear</mat-icon>
+          </button>
+        </mat-form-field>
+
+        <!-- Groups List -->
+        <div class="groups-list">
+          <div *ngFor="let group of filteredGroups" 
+               class="group-item"
+               [class.selected]="selectedGroup?.groupId === group.groupId"
+               (click)="selectGroup(group)">
+            <div class="group-main">
+              <mat-icon class="group-icon">supervisor_account</mat-icon>
+              <div class="group-info">
+                <span class="group-name">{{ group.groupId }}</span>
+                <span class="group-protocol">{{ group.protocolType || 'No protocol' }}</span>
+              </div>
+            </div>
+            <mat-chip [ngClass]="'state-' + group.state.toLowerCase()" class="state-chip">
+              {{ group.state }}
+            </mat-chip>
+          </div>
+          
+          <div *ngIf="filteredGroups.length === 0 && searchQuery" class="no-results">
+            <mat-icon>search_off</mat-icon>
+            <span>No groups match "{{ searchQuery }}"</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Details Panel -->
+    <div class="details-panel">
+      <!-- No Selection State -->
+      <mat-card *ngIf="!selectedGroup" class="placeholder-card">
+        <div class="placeholder-content">
+          <mat-icon>touch_app</mat-icon>
+          <h3>Select a Consumer Group</h3>
+          <p>Click on a group from the list to view details</p>
+        </div>
+      </mat-card>
+
+      <!-- Group Details -->
+      <ng-container *ngIf="selectedGroup">
+        <!-- Group Header Card -->
+        <mat-card class="group-header-card">
+          <div class="group-header">
+            <div class="group-identity">
+              <mat-icon class="big-icon" [ngClass]="'state-icon-' + selectedGroup.state.toLowerCase()">supervisor_account</mat-icon>
+              <div>
+                <h2>{{ selectedGroup.groupId }}</h2>
+                <div class="group-meta">
+                  <mat-chip [ngClass]="'state-' + selectedGroup.state.toLowerCase()" class="state-chip">
+                    {{ selectedGroup.state }}
+                  </mat-chip>
+                  <span class="meta-item" *ngIf="groupDetails?.coordinator">
+                    <mat-icon>dns</mat-icon>
+                    {{ groupDetails?.coordinator?.host }}:{{ groupDetails?.coordinator?.port }}
+                  </span>
+                  <span class="meta-item" *ngIf="groupDetails">
+                    <mat-icon>people</mat-icon>
+                    {{ groupDetails.members.length }} members
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="group-actions">
+              <button mat-stroked-button (click)="showResetOffsetsModal(selectedGroup)">
+                <mat-icon>replay</mat-icon>
+                Reset Offsets
+              </button>
+              <button mat-stroked-button color="warn" (click)="confirmDeleteGroup(selectedGroup)">
+                <mat-icon>delete</mat-icon>
+                Delete
+              </button>
+            </div>
+          </div>
+        </mat-card>
+
+        <!-- Tabs -->
+        <mat-card class="tabs-card">
+          <mat-tab-group>
+            <!-- Lag Tab -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon>trending_down</mat-icon>
+                <span>Consumer Lag</span>
+                <mat-chip *ngIf="groupLag && getTotalLag() > 0" class="tab-badge lag-badge" [ngClass]="getLagSeverity()">
+                  {{ getTotalLag() | number }}
+                </mat-chip>
+              </ng-template>
+              
+              <div class="tab-content">
+                <div *ngIf="isLoadingLag" class="loading-inline">
+                  <mat-spinner diameter="24"></mat-spinner>
+                  <span>Loading lag information...</span>
+                </div>
+
+                <div *ngIf="!isLoadingLag && groupLag && groupLag.length > 0">
+                  <!-- Lag Summary -->
+                  <div class="lag-summary">
+                    <div class="summary-card total">
+                      <mat-icon>speed</mat-icon>
+                      <div class="summary-info">
+                        <span class="summary-value">{{ getTotalLag() | number }}</span>
+                        <span class="summary-label">Total Lag</span>
+                      </div>
+                    </div>
+                    <div class="summary-card topics">
+                      <mat-icon>topic</mat-icon>
+                      <div class="summary-info">
+                        <span class="summary-value">{{ getUniqueTopics().length }}</span>
+                        <span class="summary-label">Topics</span>
+                      </div>
+                    </div>
+                    <div class="summary-card partitions">
+                      <mat-icon>view_module</mat-icon>
+                      <div class="summary-info">
+                        <span class="summary-value">{{ groupLag.length }}</span>
+                        <span class="summary-label">Partitions</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Lag by Topic -->
+                  <h4 class="section-title">Lag by Topic</h4>
+                  <mat-accordion class="lag-accordion">
+                    <mat-expansion-panel *ngFor="let topic of getUniqueTopics()">
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                          <mat-icon>topic</mat-icon>
+                          {{ topic }}
+                        </mat-panel-title>
+                        <mat-panel-description>
+                          <mat-chip class="lag-chip" [ngClass]="getTopicLagSeverity(topic)">
+                            {{ getTopicLag(topic) | number }} lag
+                          </mat-chip>
+                          <span class="partition-count">{{ getTopicPartitions(topic).length }} partitions</span>
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
+                      
+                      <div class="partition-grid">
+                        <div *ngFor="let p of getTopicPartitions(topic)" class="partition-card">
+                          <div class="partition-header">
+                            <span class="partition-label">P{{ p.partition }}</span>
+                            <mat-chip class="lag-chip tiny" [ngClass]="getPartitionLagSeverity(p.lag)">
+                              {{ p.lag | number }}
+                            </mat-chip>
+                          </div>
+                          <div class="partition-progress">
+                            <mat-progress-bar mode="determinate" [value]="getProgressValue(p)" 
+                                              [color]="p.lag > 1000 ? 'warn' : 'primary'">
+                            </mat-progress-bar>
+                          </div>
+                          <div class="partition-offsets">
+                            <span>{{ p.currentOffset | number }}</span>
+                            <mat-icon>arrow_forward</mat-icon>
+                            <span>{{ p.endOffset | number }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </mat-expansion-panel>
+                  </mat-accordion>
+                </div>
+
+                <div *ngIf="!isLoadingLag && (!groupLag || groupLag.length === 0)" class="empty-tab">
+                  <mat-icon>check_circle</mat-icon>
+                  <h4>No Committed Offsets</h4>
+                  <p>This consumer group has no committed offsets yet</p>
+                </div>
+              </div>
+            </mat-tab>
+
+            <!-- Members Tab -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon>people</mat-icon>
+                <span>Members</span>
+                <mat-chip *ngIf="groupDetails" class="tab-badge">
+                  {{ groupDetails.members.length }}
+                </mat-chip>
+              </ng-template>
+              
+              <div class="tab-content">
+                <div *ngIf="isLoadingDetails" class="loading-inline">
+                  <mat-spinner diameter="24"></mat-spinner>
+                  <span>Loading member information...</span>
+                </div>
+
+                <div *ngIf="!isLoadingDetails && groupDetails && groupDetails.members.length > 0" class="members-grid">
+                  <mat-card *ngFor="let member of groupDetails.members" class="member-card">
+                    <div class="member-header">
+                      <mat-icon>person</mat-icon>
+                      <div class="member-info">
+                        <span class="member-id">{{ member.clientId }}</span>
+                        <span class="member-host">{{ member.host }}</span>
+                      </div>
+                    </div>
+                    
+                    <mat-divider></mat-divider>
+                    
+                    <div class="member-assignments">
+                      <h5>Assigned Partitions ({{ member.assignment.length }})</h5>
+                      <div class="assignment-chips">
+                        <mat-chip *ngFor="let a of member.assignment" class="assignment-chip">
+                          {{ a.topic }}:{{ a.partition }}
+                        </mat-chip>
+                        <span *ngIf="member.assignment.length === 0" class="no-assignments">
+                          No partitions assigned
+                        </span>
+                      </div>
+                    </div>
+                  </mat-card>
+                </div>
+
+                <div *ngIf="!isLoadingDetails && groupDetails && groupDetails.members.length === 0" class="empty-tab">
+                  <mat-icon>person_off</mat-icon>
+                  <h4>No Active Members</h4>
+                  <p>This consumer group has no active members</p>
+                </div>
+              </div>
+            </mat-tab>
+
+            <!-- Info Tab -->
+            <mat-tab>
+              <ng-template mat-tab-label>
+                <mat-icon>info</mat-icon>
+                <span>Details</span>
+              </ng-template>
+              
+              <div class="tab-content">
+                <div *ngIf="groupDetails" class="details-grid">
+                  <div class="detail-card">
+                    <mat-icon>badge</mat-icon>
+                    <div class="detail-info">
+                      <span class="detail-label">Group ID</span>
+                      <span class="detail-value">{{ groupDetails.groupId }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="detail-card">
+                    <mat-icon>toggle_on</mat-icon>
+                    <div class="detail-info">
+                      <span class="detail-label">State</span>
+                      <mat-chip [ngClass]="'state-' + groupDetails.state.toLowerCase()" class="state-chip">
+                        {{ groupDetails.state }}
+                      </mat-chip>
+                    </div>
+                  </div>
+                  
+                  <div class="detail-card">
+                    <mat-icon>settings_ethernet</mat-icon>
+                    <div class="detail-info">
+                      <span class="detail-label">Protocol Type</span>
+                      <span class="detail-value">{{ groupDetails.protocolType || 'None' }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="detail-card" *ngIf="groupDetails.coordinator">
+                    <mat-icon>dns</mat-icon>
+                    <div class="detail-info">
+                      <span class="detail-label">Coordinator</span>
+                      <span class="detail-value">{{ groupDetails.coordinator.host }}:{{ groupDetails.coordinator.port }}</span>
+                      <span class="detail-sub">Broker ID: {{ groupDetails.coordinator.brokerId }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="detail-card">
+                    <mat-icon>people</mat-icon>
+                    <div class="detail-info">
+                      <span class="detail-label">Members</span>
+                      <span class="detail-value">{{ groupDetails.members.length }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </mat-tab>
+          </mat-tab-group>
+        </mat-card>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- Reset Offsets Modal -->
+  <div *ngIf="showResetModal" class="modal-overlay" (click)="showResetModal = false">
+    <mat-card class="reset-modal" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>replay</mat-icon>
+        <mat-card-title>Reset Consumer Offsets</mat-card-title>
+        <mat-card-subtitle>{{ resetRequest.groupId }}</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="warning-banner">
+          <mat-icon>warning</mat-icon>
+          <div>
+            <strong>Warning:</strong> Make sure the consumer group is stopped before resetting offsets.
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <mat-form-field appearance="fill">
+            <mat-label>Reset Strategy</mat-label>
+            <mat-select [(ngModel)]="resetRequest.resetType">
+              <mat-option [value]="0">
+                <mat-icon>first_page</mat-icon>
+                Earliest (Beginning)
+              </mat-option>
+              <mat-option [value]="1">
+                <mat-icon>last_page</mat-icon>
+                Latest (End)
+              </mat-option>
+              <mat-option [value]="2">
+                <mat-icon>pin</mat-icon>
+                Specific Offset
+              </mat-option>
+              <mat-option [value]="3">
+                <mat-icon>schedule</mat-icon>
+                By Timestamp
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Topic</mat-label>
+            <input matInput [(ngModel)]="resetTopic" placeholder="Enter topic name">
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Partitions</mat-label>
+            <input matInput [(ngModel)]="resetPartitions" placeholder="0,1,2 or * for all">
+            <mat-hint>Use * for all partitions</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" *ngIf="resetRequest.resetType === 2">
+            <mat-label>Target Offset</mat-label>
+            <input matInput type="number" [(ngModel)]="resetTargetOffset" min="0">
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" *ngIf="resetRequest.resetType === 3">
+            <mat-label>Timestamp</mat-label>
+            <input matInput type="datetime-local" [(ngModel)]="resetTimestamp">
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+      
+      <mat-card-actions align="end">
+        <button mat-button (click)="showResetModal = false">Cancel</button>
+        <button mat-raised-button color="warn" (click)="resetOffsets()" [disabled]="!resetTopic || isResetting">
+          <mat-icon>{{ isResetting ? 'hourglass_empty' : 'replay' }}</mat-icon>
+          {{ isResetting ? 'Resetting...' : 'Reset Offsets' }}
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div *ngIf="groupToDelete" class="modal-overlay" (click)="groupToDelete = null">
+    <mat-card class="delete-modal" (click)="$event.stopPropagation()">
+      <mat-card-header>
+        <mat-icon mat-card-avatar color="warn">delete_forever</mat-icon>
+        <mat-card-title>Delete Consumer Group</mat-card-title>
+        <mat-card-subtitle>This action cannot be undone</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <p>Are you sure you want to delete consumer group <code>{{ groupToDelete.groupId }}</code>?</p>
+        <div class="warning-banner">
+          <mat-icon>warning</mat-icon>
+          <div>Make sure the consumer group is stopped (inactive) before deleting.</div>
+        </div>
+      </mat-card-content>
+      
+      <mat-card-actions align="end">
+        <button mat-button (click)="groupToDelete = null">Cancel</button>
+        <button mat-raised-button color="warn" (click)="deleteGroup()" [disabled]="isDeleting">
+          <mat-icon>{{ isDeleting ? 'hourglass_empty' : 'delete' }}</mat-icon>
+          {{ isDeleting ? 'Deleting...' : 'Delete Group' }}
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>
