@@ -33,19 +33,12 @@ public class KafkaConsumerService
 
         var config = new ConsumerConfig
         {
-            BootstrapServers = connection.BootstrapServers,
             GroupId = request.GroupId ?? $"kafka-beast-{Guid.NewGuid()}",
             AutoOffsetReset = request.AutoOffsetReset ? AutoOffsetReset.Earliest : AutoOffsetReset.Latest,
             EnableAutoCommit = true
         };
-
-        if (connection.AdditionalConfig != null)
-        {
-            foreach (var kvp in connection.AdditionalConfig)
-            {
-                config.Set(kvp.Key, kvp.Value);
-            }
-        }
+        
+        KafkaConfigHelper.ApplyConsumerSettings(config, connection);
 
         var builder = new ConsumerBuilder<byte[], byte[]>(config);
         return builder.Build();

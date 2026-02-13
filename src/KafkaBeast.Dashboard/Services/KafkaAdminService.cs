@@ -19,18 +19,8 @@ public class KafkaAdminService
 
     private IAdminClient CreateAdminClient(KafkaConnection connection)
     {
-        var config = new AdminClientConfig
-        {
-            BootstrapServers = connection.BootstrapServers
-        };
-
-        if (connection.AdditionalConfig != null)
-        {
-            foreach (var kvp in connection.AdditionalConfig)
-            {
-                config.Set(kvp.Key, kvp.Value);
-            }
-        }
+        var config = new AdminClientConfig();
+        KafkaConfigHelper.ApplyConnectionSettings(config, connection);
 
         return new AdminClientBuilder(config).Build();
     }

@@ -32,22 +32,23 @@ public class KafkaProducerService
                 throw new InvalidOperationException($"Connection {id} not found");
             }
 
-            var config = new ProducerConfig
+            var config = new ProducerConfig();
+            KafkaConfigHelper.ApplyProducerSettings(config, connection);
+            
+            // Set defaults if not specified
+            if (!connection.Acks.HasValue)
             {
-                BootstrapServers = connection.BootstrapServers,
-                Acks = Confluent.Kafka.Acks.All,
-                EnableIdempotence = true,
-                MaxInFlight = 5,
-                MessageSendMaxRetries = 3
-            };
-
-            if (connection.AdditionalConfig != null)
-            {
-                foreach (var kvp in connection.AdditionalConfig)
-                {
-                    config.Set(kvp.Key, kvp.Value);
-                }
+                config.Acks = Confluent.Kafka.Acks.All;
             }
+            if (!connection.EnableIdempotence.HasValue)
+            {
+                config.EnableIdempotence = true;
+            }
+            if (!connection.MaxInFlight.HasValue)
+            {
+                config.MaxInFlight = 5;
+            }
+            config.MessageSendMaxRetries = 3;
 
             var builder = new ProducerBuilder<byte[], byte[]>(config);
             return builder.Build();
