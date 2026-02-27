@@ -1,0 +1,28 @@
+<div class="tab-content">
+  <div class="json-toolbar">
+    <button mat-raised-button (click)="formatJson()">
+      <mat-icon>format_align_left</mat-icon> Format
+    </button>
+    <button mat-raised-button (click)="copyJsonToClipboard()">
+      <mat-icon>content_copy</mat-icon> Copy
+    </button>
+    <button mat-raised-button (click)="exportToJson()">
+      <mat-icon>download</mat-icon> Export
+    </button>
+    <button mat-raised-button>
+      <mat-icon>upload</mat-icon> Import
+      <input type="file" accept=".json" (change)="importFromJson($event)" class="file-input" />
+    </button>
+    <button mat-raised-button color="primary" (click)="applyJsonConfig()">
+      <mat-icon>check</mat-icon> Apply
+    </button>
+  </div>
+  
+  <div class="editor-container">
+    <ngx-monaco-editor
+      [(ngModel)]="jsonConfig"
+      [options]="jsonEditorOptions"
+      class="json-editor"
+    ></ngx-monaco-editor>
+  </div>
+</div>

@@ -1,0 +1,118 @@
+<div class="tab-content">
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Security Protocol</mat-label>
+    <mat-select [(ngModel)]="connection.securityProtocol" (selectionChange)="onSecurityProtocolChange()">
+      <mat-option [value]="0">PLAINTEXT</mat-option>
+      <mat-option [value]="1">SSL</mat-option>
+      <mat-option [value]="2">SASL_PLAINTEXT</mat-option>
+      <mat-option [value]="3">SASL_SSL</mat-option>
+    </mat-select>
+    <mat-hint>Choose the security protocol for broker communication</mat-hint>
+  </mat-form-field>
+  
+  <!-- SASL Settings -->
+  <mat-expansion-panel class="settings-panel" *ngIf="isSaslEnabled()" expanded>
+    <mat-expansion-panel-header>
+      <mat-panel-title><mat-icon>security</mat-icon> SASL Authentication</mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>SASL Mechanism</mat-label>
+      <mat-select [(ngModel)]="connection.saslMechanism" (ngModelChange)="onValueChange()">
+        <mat-option [value]="0">PLAIN</mat-option>
+        <mat-option [value]="1">SCRAM-SHA-256</mat-option>
+        <mat-option [value]="2">SCRAM-SHA-512</mat-option>
+        <mat-option [value]="3">GSSAPI (Kerberos)</mat-option>
+        <mat-option [value]="4">OAUTHBEARER</mat-option>
+      </mat-select>
+    </mat-form-field>
+    
+    <div class="form-row" *ngIf="isBasicSaslAuth()">
+      <mat-form-field appearance="outline">
+        <mat-label>Username</mat-label>
+        <input matInput [(ngModel)]="connection.saslUsername" (ngModelChange)="onValueChange()" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input matInput type="password" [(ngModel)]="connection.saslPassword" (ngModelChange)="onValueChange()" />
+      </mat-form-field>
+    </div>
+    
+    <div *ngIf="connection.saslMechanism === 4">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>OAuth Bearer Token Endpoint URL</mat-label>
+        <input matInput [(ngModel)]="connection.saslOauthBearerTokenEndpointUrl" (ngModelChange)="onValueChange()" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>OAuth Bearer Token</mat-label>
+        <textarea matInput [(ngModel)]="connection.saslOauthBearerToken" (ngModelChange)="onValueChange()" rows="3"></textarea>
+      </mat-form-field>
+    </div>
+    
+    <div *ngIf="connection.saslMechanism === 3">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Kerberos Service Name</mat-label>
+        <input matInput [(ngModel)]="connection.saslKerberosServiceName" (ngModelChange)="onValueChange()" placeholder="kafka" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Kerberos Principal</mat-label>
+        <input matInput [(ngModel)]="connection.saslKerberosPrincipal" (ngModelChange)="onValueChange()" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Kerberos Keytab Path</mat-label>
+        <input matInput [(ngModel)]="connection.saslKerberosKeytab" (ngModelChange)="onValueChange()" />
+      </mat-form-field>
+    </div>
+  </mat-expansion-panel>
+  
+  <!-- SSL Settings -->
+  <mat-expansion-panel class="settings-panel" *ngIf="isSslEnabled()">
+    <mat-expansion-panel-header>
+      <mat-panel-title><mat-icon>lock</mat-icon> SSL/TLS Configuration</mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <p class="section-hint">Configure SSL certificates using file paths or paste PEM content directly</p>
+    
+    <h4>Certificate Authority</h4>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>CA Certificate Path</mat-label>
+      <input matInput [(ngModel)]="connection.sslCaLocation" (ngModelChange)="onValueChange()" placeholder="/path/to/ca.pem" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>CA Certificate (PEM)</mat-label>
+      <textarea matInput [(ngModel)]="connection.sslCaPem" (ngModelChange)="onValueChange()" rows="4" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+    </mat-form-field>
+    
+    <mat-divider></mat-divider>
+    
+    <h4>Client Certificate</h4>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Client Certificate Path</mat-label>
+      <input matInput [(ngModel)]="connection.sslCertificateLocation" (ngModelChange)="onValueChange()" placeholder="/path/to/client.pem" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Client Certificate (PEM)</mat-label>
+      <textarea matInput [(ngModel)]="connection.sslCertificatePem" (ngModelChange)="onValueChange()" rows="4" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+    </mat-form-field>
+    
+    <mat-divider></mat-divider>
+    
+    <h4>Client Private Key</h4>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Private Key Path</mat-label>
+      <input matInput [(ngModel)]="connection.sslKeyLocation" (ngModelChange)="onValueChange()" placeholder="/path/to/client.key" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Private Key (PEM)</mat-label>
+      <textarea matInput [(ngModel)]="connection.sslKeyPem" (ngModelChange)="onValueChange()" rows="4" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Private Key Password</mat-label>
+      <input matInput type="password" [(ngModel)]="connection.sslKeyPassword" (ngModelChange)="onValueChange()" />
+    </mat-form-field>
+    
+    <mat-checkbox [(ngModel)]="connection.sslEndpointIdentificationAlgorithm" (ngModelChange)="onValueChange()" color="primary">
+      Enable SSL Endpoint Identification (hostname verification)
+    </mat-checkbox>
+  </mat-expansion-panel>
+</div>

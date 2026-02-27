@@ -1,0 +1,36 @@
+<div class="modal-overlay" (click)="onCancel()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>{{ isEditing ? 'Edit' : 'Add' }} Connection</h2>
+      <button mat-icon-button (click)="onCancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    
+    <mat-tab-group class="config-tabs">
+      <mat-tab label="Basic">
+        <app-basic-settings [(ngModel)]="localConnection"></app-basic-settings>
+      </mat-tab>
+      
+      <mat-tab label="Security">
+        <app-security-settings [(ngModel)]="localConnection"></app-security-settings>
+      </mat-tab>
+      
+      <mat-tab label="Advanced">
+        <app-advanced-settings [(ngModel)]="localConnection"></app-advanced-settings>
+      </mat-tab>
+      
+      <mat-tab label="JSON Config">
+        <app-json-config [(ngModel)]="localConnection"></app-json-config>
+      </mat-tab>
+    </mat-tab-group>
+    
+    <div class="modal-footer">
+      <button mat-stroked-button (click)="onCancel()">Cancel</button>
+      <button mat-raised-button color="primary" (click)="onSave()">
+        <mat-icon>save</mat-icon>
+        {{ isEditing ? 'Update' : 'Create' }} Connection
+      </button>
+    </div>
+  </div>
+</div>

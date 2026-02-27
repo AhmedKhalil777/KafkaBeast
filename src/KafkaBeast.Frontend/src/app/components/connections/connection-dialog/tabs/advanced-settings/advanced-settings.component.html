@@ -1,0 +1,108 @@
+<div class="tab-content">
+  <mat-expansion-panel class="settings-panel" expanded>
+    <mat-expansion-panel-header>
+      <mat-panel-title><mat-icon>speed</mat-icon> Timeouts</mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <div class="form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Message Timeout (ms)</mat-label>
+        <input matInput type="number" [(ngModel)]="connection.messageTimeoutMs" (ngModelChange)="onValueChange()" placeholder="300000" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Request Timeout (ms)</mat-label>
+        <input matInput type="number" [(ngModel)]="connection.requestTimeoutMs" (ngModelChange)="onValueChange()" placeholder="30000" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Session Timeout (ms)</mat-label>
+        <input matInput type="number" [(ngModel)]="connection.sessionTimeoutMs" (ngModelChange)="onValueChange()" placeholder="45000" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Socket Timeout (ms)</mat-label>
+        <input matInput type="number" [(ngModel)]="connection.socketTimeoutMs" (ngModelChange)="onValueChange()" placeholder="60000" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Connections Max Idle (ms)</mat-label>
+        <input matInput type="number" [(ngModel)]="connection.connectionsMaxIdleMs" (ngModelChange)="onValueChange()" placeholder="540000" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Metadata Max Age (ms)</mat-label>
+        <input matInput type="number" [(ngModel)]="connection.metadataMaxAgeMs" (ngModelChange)="onValueChange()" placeholder="300000" />
+      </mat-form-field>
+    </div>
+  </mat-expansion-panel>
+  
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title><mat-icon>tune</mat-icon> Producer Settings</mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Compression</mat-label>
+        <mat-select [(ngModel)]="connection.compressionType" (ngModelChange)="onValueChange()">
+          <mat-option [value]="undefined">Default</mat-option>
+          <mat-option [value]="0">None</mat-option>
+          <mat-option [value]="1">GZIP</mat-option>
+          <mat-option [value]="2">Snappy</mat-option>
+          <mat-option [value]="3">LZ4</mat-option>
+          <mat-option [value]="4">ZSTD</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Acks</mat-label>
+        <mat-select [(ngModel)]="connection.acks" (ngModelChange)="onValueChange()">
+          <mat-option [value]="undefined">Default</mat-option>
+          <mat-option [value]="0">None (0)</mat-option>
+          <mat-option [value]="1">Leader (1)</mat-option>
+          <mat-option [value]="2">All (-1)</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Max In-Flight Requests</mat-label>
+        <input matInput type="number" [(ngModel)]="connection.maxInFlight" (ngModelChange)="onValueChange()" placeholder="5" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Client ID</mat-label>
+        <input matInput [(ngModel)]="connection.clientId" (ngModelChange)="onValueChange()" placeholder="kafka-beast" />
+        <mat-hint>Identifier for this client when connecting to Kafka</mat-hint>
+      </mat-form-field>
+    </div>
+    
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Consumer Group ID</mat-label>
+        <input matInput [(ngModel)]="connection.consumerGroupId" (ngModelChange)="onValueChange()" placeholder="kafka-beast-consumers" />
+        <mat-hint>Default consumer group for consuming messages</mat-hint>
+      </mat-form-field>
+    </div>
+    
+    <mat-checkbox [(ngModel)]="connection.enableIdempotence" (ngModelChange)="onValueChange()" color="primary">
+      Enable Idempotence (exactly-once semantics)
+    </mat-checkbox>
+  </mat-expansion-panel>
+  
+  <mat-expansion-panel class="settings-panel">
+    <mat-expansion-panel-header>
+      <mat-panel-title><mat-icon>code</mat-icon> Custom Configuration</mat-panel-title>
+    </mat-expansion-panel-header>
+    
+    <p class="section-hint">Add any additional librdkafka configuration properties</p>
+    
+    <div *ngFor="let config of configList; let i = index" class="config-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Key</mat-label>
+        <input matInput [(ngModel)]="config.key" (ngModelChange)="onValueChange()" placeholder="property.name" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Value</mat-label>
+        <input matInput [(ngModel)]="config.value" (ngModelChange)="onValueChange()" />
+      </mat-form-field>
+      <button mat-icon-button color="warn" (click)="removeConfig(i)"><mat-icon>delete</mat-icon></button>
+    </div>
+    <button mat-stroked-button (click)="addConfig()"><mat-icon>add</mat-icon> Add Property</button>
+  </mat-expansion-panel>
+</div>

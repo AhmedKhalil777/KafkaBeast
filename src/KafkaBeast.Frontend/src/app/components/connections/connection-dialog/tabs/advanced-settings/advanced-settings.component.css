@@ -1,0 +1,53 @@
+.tab-content {
+  padding: 24px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row mat-form-field {
+  flex: 1;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.settings-panel {
+  margin-bottom: 16px;
+}
+
+.settings-panel mat-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-panel mat-panel-title mat-icon {
+  color: #1976d2;
+}
+
+.section-hint {
+  color: #757575;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.config-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.config-row mat-form-field {
+  flex: 1;
+}
+
+mat-checkbox {
+  margin: 16px 0;
+}

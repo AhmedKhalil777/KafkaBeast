@@ -1,0 +1,47 @@
+.tab-content {
+  padding: 24px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row mat-form-field {
+  flex: 1;
+}
+
+.settings-panel {
+  margin-bottom: 16px;
+}
+
+.settings-panel mat-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-panel mat-panel-title mat-icon {
+  color: #1976d2;
+}
+
+.section-hint {
+  color: #757575;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+h4 {
+  margin: 16px 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #424242;
+}
+
+mat-checkbox {
+  margin: 16px 0;
+}

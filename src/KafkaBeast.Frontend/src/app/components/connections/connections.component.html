@@ -1,0 +1,134 @@
+<div class="connections-container">
+  <div class="page-header">
+    <mat-icon class="page-icon">hub</mat-icon>
+    <div class="page-title">
+      <h1>Kafka Connections</h1>
+      <p>Manage your Kafka cluster connections</p>
+    </div>
+    <button mat-raised-button color="primary" (click)="openAddDialog()">
+      <mat-icon>add</mat-icon>
+      Add Connection
+    </button>
+  </div>
+
+  <!-- Connections List -->
+  <mat-card *ngIf="connections.length > 0" class="connections-card">
+    <mat-card-content>
+      <table mat-table [dataSource]="connections" class="connections-table">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let conn">
+            <div class="connection-name-cell">
+              <mat-icon [class.active]="conn.isActive">{{ conn.isActive ? 'link' : 'link_off' }}</mat-icon>
+              <span>{{ conn.name }}</span>
+            </div>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="servers">
+          <th mat-header-cell *matHeaderCellDef>Bootstrap Servers</th>
+          <td mat-cell *matCellDef="let conn">{{ conn.bootstrapServers }}</td>
+        </ng-container>
+        <ng-container matColumnDef="security">
+          <th mat-header-cell *matHeaderCellDef>Security</th>
+          <td mat-cell *matCellDef="let conn">
+            <mat-chip-set>
+              <mat-chip>{{ getSecurityProtocolLabel(conn.securityProtocol) }}</mat-chip>
+            </mat-chip-set>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let conn">
+            <span class="status-badge" [class.active]="conn.isActive" [class.inactive]="!conn.isActive">
+              {{ conn.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let conn">
+            <button mat-icon-button matTooltip="Test Connection" (click)="testConnection(conn)" [disabled]="testingConnection === conn.id">
+              <mat-icon>{{ testingConnection === conn.id ? 'hourglass_empty' : 'wifi_tethering' }}</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Cluster Info" (click)="viewClusterInfo(conn)">
+              <mat-icon>info</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Edit" (click)="editConnection(conn)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button matTooltip="Delete" color="warn" (click)="deleteConnection(conn.id)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card *ngIf="connections.length === 0" class="empty-card">
+    <mat-card-content>
+      <mat-icon>cloud_off</mat-icon>
+      <h3>No connections configured</h3>
+      <p>Add your first Kafka connection to get started</p>
+      <button mat-raised-button color="primary" (click)="openAddDialog()">
+        <mat-icon>add</mat-icon>
+        Add Connection
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Test Result -->
+  <mat-card *ngIf="testResult" class="result-card" [class.success]="testResult.success" [class.failure]="!testResult.success">
+    <mat-card-header>
+      <mat-icon mat-card-avatar>{{ testResult.success ? 'check_circle' : 'error' }}</mat-icon>
+      <mat-card-title>Connection Test Result</mat-card-title>
+      <button mat-icon-button (click)="testResult = null" class="close-btn">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-card-header>
+    <mat-card-content>
+      <p><strong>Status:</strong> {{ testResult.success ? 'Connected' : 'Failed' }}</p>
+      <p><strong>Message:</strong> {{ testResult.message }}</p>
+      <p *ngIf="testResult.brokerCount"><strong>Brokers:</strong> {{ testResult.brokerCount }}</p>
+      <p *ngIf="testResult.topicCount"><strong>Topics:</strong> {{ testResult.topicCount }}</p>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Cluster Info -->
+  <mat-card *ngIf="clusterInfo" class="cluster-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar>dns</mat-icon>
+      <mat-card-title>Cluster Information</mat-card-title>
+      <button mat-icon-button (click)="clusterInfo = null" class="close-btn">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="cluster-stats">
+        <div class="stat"><span class="label">Controller ID</span><span class="value">{{ clusterInfo.controllerId }}</span></div>
+        <div class="stat"><span class="label">Total Topics</span><span class="value">{{ clusterInfo.topicCount }}</span></div>
+        <div class="stat"><span class="label">Brokers</span><span class="value">{{ clusterInfo.brokers.length }}</span></div>
+      </div>
+      <mat-divider></mat-divider>
+      <h4>Broker Details</h4>
+      <table mat-table [dataSource]="clusterInfo.brokers" class="brokers-table">
+        <ng-container matColumnDef="brokerId"><th mat-header-cell *matHeaderCellDef>ID</th><td mat-cell *matCellDef="let b">{{ b.brokerId }}</td></ng-container>
+        <ng-container matColumnDef="host"><th mat-header-cell *matHeaderCellDef>Host</th><td mat-cell *matCellDef="let b">{{ b.host }}</td></ng-container>
+        <ng-container matColumnDef="port"><th mat-header-cell *matHeaderCellDef>Port</th><td mat-cell *matCellDef="let b">{{ b.port }}</td></ng-container>
+        <tr mat-header-row *matHeaderRowDef="['brokerId', 'host', 'port']"></tr>
+        <tr mat-row *matRowDef="let row; columns: ['brokerId', 'host', 'port'];"></tr>
+      </table>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<!-- Connection Dialog -->
+<app-connection-dialog
+  *ngIf="showDialog"
+  [connection]="currentConnection"
+  [isEditing]="isEditing"
+  (save)="saveConnection($event)"
+  (cancel)="closeDialog()">
+</app-connection-dialog>

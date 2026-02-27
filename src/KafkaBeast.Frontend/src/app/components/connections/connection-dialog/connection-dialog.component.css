@@ -1,0 +1,57 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  max-width: 800px;
+  width: 95%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.config-tabs {
+  flex: 1;
+  overflow: hidden;
+}
+
+.config-tabs ::ng-deep .mat-mdc-tab-body-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(90vh - 200px);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+}

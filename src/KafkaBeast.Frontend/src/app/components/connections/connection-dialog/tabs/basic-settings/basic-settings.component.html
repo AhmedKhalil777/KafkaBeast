@@ -1,0 +1,17 @@
+<div class="tab-content">
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Connection Name</mat-label>
+    <input matInput [(ngModel)]="connection.name" (ngModelChange)="onValueChange()" placeholder="My Kafka Cluster" />
+    <mat-hint>A friendly name to identify this connection</mat-hint>
+  </mat-form-field>
+  
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Bootstrap Servers</mat-label>
+    <input matInput [(ngModel)]="connection.bootstrapServers" (ngModelChange)="onValueChange()" placeholder="localhost:9092" />
+    <mat-hint>Comma-separated list of broker addresses (host:port)</mat-hint>
+  </mat-form-field>
+  
+  <mat-checkbox [(ngModel)]="connection.isActive" (ngModelChange)="onValueChange()" color="primary">
+    Set as Active Connection
+  </mat-checkbox>
+</div>

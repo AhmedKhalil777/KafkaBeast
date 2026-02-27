@@ -1,0 +1,11 @@
+.tab-content {
+  padding: 24px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+mat-checkbox {
+  margin: 16px 0;
+}
