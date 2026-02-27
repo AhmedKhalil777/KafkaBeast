@@ -1,7 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using KafkaBeast.Dashboard.Models;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
+using Microsoft.Extensions.Logging;
 
 namespace KafkaBeast.Dashboard.Services;
 

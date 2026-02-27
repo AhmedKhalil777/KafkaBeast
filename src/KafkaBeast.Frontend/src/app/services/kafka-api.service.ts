@@ -91,6 +91,10 @@ export class KafkaApiService {
     );
   }
 
+  stopBatchConsumption(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/consume/stop-batch`, {});
+  }
+
   // Topics
   getTopics(connectionId: string): Observable<KafkaTopic[]> {
     return this.http.get<KafkaTopic[]>(`${this.apiUrl}/connections/${connectionId}/topics`);

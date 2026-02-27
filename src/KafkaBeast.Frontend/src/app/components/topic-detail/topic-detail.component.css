@@ -73,6 +73,32 @@
       color: var(--text-secondary);
     }
 
+    .no-data-message {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+
+    .no-data-message mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+      color: var(--info-color);
+      opacity: 0.7;
+    }
+
+    .no-data-message p {
+      margin: 0;
+      font-size: 14px;
+    }
+
     .main-card {
       overflow: hidden;
     }
@@ -239,8 +265,58 @@
 
     .control-actions {
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .signalr-controls {
+      display: flex;
+      flex-direction: column;
       gap: 16px;
+      padding: 16px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+    }
+
+    .signalr-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .signalr-badge mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .warning-message {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(255, 152, 0, 0.1);
+      border: 1px solid rgba(255, 152, 0, 0.3);
+      border-radius: 8px;
+      color: #ff9800;
+      font-size: 13px;
+    }
+
+    .warning-message mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
@@ -1911,6 +1987,74 @@
 
     .inline-tree {
       padding: 12px;
+    }
+
+    /* Consumption Period Configuration */
+    .consumption-period-config {
+      margin-top: 24px;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    }
+
+    .period-type-selector {
+      margin-bottom: 20px;
+    }
+
+    .period-label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .period-radio-group {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .period-radio-group mat-radio-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .period-radio-group mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .duration-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    }
+
+    .duration-presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .preset-button {
+      font-size: 12px;
+      padding: 4px 12px;
+      min-width: 50px;
+      transition: all 0.3s ease;
+    }
+
+    .preset-button.active {
+      background-color: var(--primary-color, #3f51b5);
+      color: white;
+      border-color: var(--primary-color, #3f51b5);
     }
 
     @media (max-width: 768px) {

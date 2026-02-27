@@ -1,6 +1,9 @@
+using System;
+using System.Threading.Tasks;
 using KafkaBeast.Dashboard.Models;
 using KafkaBeast.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace KafkaBeast.Dashboard.Controllers;
 

@@ -102,10 +102,10 @@
         <span class="col-low">{{ p.lowWatermark | number }}</span>
         <span class="col-high">{{ p.highWatermark | number }}</span>
         <span class="col-messages">{{ p.messageCount | number }}</span>
-        <span class="col-replicas">{{ p.replicas?.join(', ') || '-' }}</span>
-        <span class="col-isr" [class.healthy]="p.inSyncReplicas?.length === p.replicas?.length" 
-              [class.degraded]="p.inSyncReplicas?.length !== p.replicas?.length">
-          {{ p.inSyncReplicas?.join(', ') || '-' }}
+        <span class="col-replicas">{{ p.replicas.join(', ') || '-' }}</span>
+        <span class="col-isr" [class.healthy]="p.inSyncReplicas.length === p.replicas.length" 
+              [class.degraded]="p.inSyncReplicas.length !== p.replicas.length">
+          {{ p.inSyncReplicas.join(', ') || '-' }}
         </span>
       </div>
     </div>

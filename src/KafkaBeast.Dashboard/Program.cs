@@ -1,13 +1,39 @@
+using System;
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using KafkaBeast.Dashboard.Data;
 using KafkaBeast.Dashboard.Hubs;
 using KafkaBeast.Dashboard.Services;
 using KafkaBeast.ServiceDefaults;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+// Add Entity Framework Core with SQLite
+var dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KafkaBeast", "kafka-beast.db");
+var dbDirectory = Path.GetDirectoryName(dbPath);
+if (!Directory.Exists(dbDirectory))
+{
+    Directory.CreateDirectory(dbDirectory!);
+}
+
+builder.Services.AddDbContextFactory<KafkaBeastDbContext>(options =>
+    options.UseSqlite($"Data Source={dbPath}"));
+
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -40,13 +66,24 @@ builder.Services.AddCors(options =>
 });
 
 // Add Kafka services
-builder.Services.AddSingleton<KafkaConnectionService>();
+builder.Services.AddScoped<KafkaConnectionService>();
 builder.Services.AddSingleton<SerializationService>();
 builder.Services.AddScoped<KafkaProducerService>();
 builder.Services.AddScoped<KafkaConsumerService>();
 builder.Services.AddScoped<KafkaAdminService>();
 
 var app = builder.Build();
+
+// Initialize database and seed default connection
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<KafkaBeastDbContext>>();
+    await using var context = await contextFactory.CreateDbContextAsync();
+    await context.Database.EnsureCreatedAsync();
+    
+    var connectionService = scope.ServiceProvider.GetRequiredService<KafkaConnectionService>();
+    await connectionService.SeedDefaultConnectionIfNeededAsync();
+}
 
 app.MapDefaultEndpoints();
 

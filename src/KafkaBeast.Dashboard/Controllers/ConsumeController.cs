@@ -1,3 +1,4 @@
+using System.Threading;
 using KafkaBeast.Dashboard.Models;
 using KafkaBeast.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -8,43 +9,37 @@ namespace KafkaBeast.Dashboard.Controllers;
 [Route("api/[controller]")]
 public class ConsumeController : ControllerBase
 {
-    private readonly KafkaConsumerService _consumerService;
     private readonly ILogger<ConsumeController> _logger;
 
-    public ConsumeController(
-        KafkaConsumerService consumerService,
-        ILogger<ConsumeController> logger)
+    public ConsumeController(ILogger<ConsumeController> logger)
     {
-        _consumerService = consumerService;
         _logger = logger;
     }
 
-    [HttpPost("batch")]
-    public async Task<ActionResult<List<ConsumedMessage>>> ConsumeBatch(
-        [FromBody] ConsumeMessageRequest request,
-        [FromQuery] int maxMessages = 10,
-        [FromQuery] int timeoutSeconds = 5)
+    /// <summary>
+    /// Real-time message consumption is handled exclusively through SignalR at /hubs/kafka
+    /// Use the SignalR hub methods:
+    /// - StartConsuming(ConsumeMessageRequest) - Start streaming messages
+    /// - StopConsuming(connectionId, topic) - Stop consumption
+    /// </summary>
+    [HttpGet("info")]
+    public ActionResult<object> GetConsumptionInfo()
     {
-        if (string.IsNullOrWhiteSpace(request.Topic))
+        return Ok(new
         {
-            return BadRequest("Topic is required");
-        }
-
-        try
-        {
-            var messages = await _consumerService.ConsumeMessagesAsync(
-                request,
-                maxMessages,
-                TimeSpan.FromSeconds(timeoutSeconds));
-
-            return Ok(messages);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error consuming messages from topic {Topic}", request.Topic);
-            return StatusCode(500, new { error = ex.Message });
-        }
+            message = "Message consumption is handled exclusively through SignalR",
+            hubUrl = "/hubs/kafka",
+            methods = new[]
+            {
+                "StartConsuming(ConsumeMessageRequest) - Start real-time message streaming",
+                "StopConsuming(connectionId, topic) - Stop consumption"
+            },
+            events = new[]
+            {
+                "MessageReceived - Fired when a message is consumed",
+                "Error - Fired when an error occurs"
+            }
+        });
     }
 }
-
 

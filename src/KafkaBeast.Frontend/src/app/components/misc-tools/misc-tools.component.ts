@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { EditorComponent } from 'ngx-monaco-editor-v2';
+import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,7 +16,7 @@ import { MatDividerModule } from '@angular/material/divider';
   imports: [
     CommonModule,
     FormsModule,
-    EditorComponent,
+    MonacoEditorModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -503,17 +503,8 @@ export class MiscToolsComponent {
   
   formatXml(): void {
     try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(this.xmlOutput, 'application/xml');
-      const errorNode = xmlDoc.querySelector('parsererror');
-      if (errorNode) {
-        this.errorMessage = 'Invalid XML format';
-        return;
-      }
-      
-      const serializer = new XMLSerializer();
-      const xmlString = serializer.serializeToString(xmlDoc);
-      this.xmlOutput = this.prettyPrintXml(xmlString);
+      // Skip strict XML validation - just format the content as-is
+      this.xmlOutput = this.prettyPrintXml(this.xmlOutput);
     } catch (e) {
       this.errorMessage = 'Failed to format XML';
     }

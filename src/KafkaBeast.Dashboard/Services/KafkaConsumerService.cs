@@ -1,7 +1,14 @@
+using System;
 using Confluent.Kafka;
 using KafkaBeast.Dashboard.Models;
+using KafkaBeast.Dashboard.Hubs;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 
 namespace KafkaBeast.Dashboard.Services;
 
@@ -10,17 +17,20 @@ public class KafkaConsumerService
     private readonly KafkaConnectionService _connectionService;
     private readonly SerializationService _serializationService;
     private readonly ILogger<KafkaConsumerService> _logger;
+    private readonly IHubContext<KafkaHub> _hubContext;
     private readonly ConcurrentDictionary<string, IConsumer<byte[], byte[]>> _consumers = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _cancellationTokens = new();
 
     public KafkaConsumerService(
         KafkaConnectionService connectionService,
         SerializationService serializationService,
-        ILogger<KafkaConsumerService> logger)
+        ILogger<KafkaConsumerService> logger,
+        IHubContext<KafkaHub> hubContext)
     {
         _connectionService = connectionService;
         _serializationService = serializationService;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     private IConsumer<byte[], byte[]> CreateConsumer(string connectionId, ConsumeMessageRequest request)
@@ -31,15 +41,21 @@ public class KafkaConsumerService
             throw new InvalidOperationException($"Connection {connectionId} not found");
         }
 
+        var groupId = !string.IsNullOrWhiteSpace(request.GroupId) 
+            ? request.GroupId 
+            : $"kafkabeast-consumer-{Guid.NewGuid()}";
+
         var config = new ConsumerConfig
         {
-            GroupId = request.GroupId ?? $"kafka-beast-{Guid.NewGuid()}",
             AutoOffsetReset = request.AutoOffsetReset ? AutoOffsetReset.Earliest : AutoOffsetReset.Latest,
-            EnableAutoCommit = true
+            EnableAutoCommit = false,
+            SessionTimeoutMs = 30000,
+            HeartbeatIntervalMs = 3000,
+            ApiVersionRequestTimeoutMs = 10000
         };
         
         KafkaConfigHelper.ApplyConsumerSettings(config, connection);
-
+        config.EnableAutoCommit = false;
         var builder = new ConsumerBuilder<byte[], byte[]>(config);
         return builder.Build();
     }
@@ -56,10 +72,7 @@ public class KafkaConsumerService
             PrettyPrintJson = true
         };
 
-        // Deserialize key
         var (keyValue, keyError) = _serializationService.Deserialize(result.Message.Key, request.KeySerialization, config);
-        
-        // Deserialize value
         var (valueValue, valueError) = _serializationService.Deserialize(result.Message.Value, request.ValueSerialization, config);
 
         var consumedMessage = new ConsumedMessage
@@ -89,57 +102,53 @@ public class KafkaConsumerService
         return consumedMessage;
     }
 
-    public Task<List<ConsumedMessage>> ConsumeMessagesAsync(
-        ConsumeMessageRequest request,
-        int maxMessages = 10,
-        TimeSpan? timeout = null)
+    private async Task PushMessageToSignalRAsync(string clientConnectionId, ConsumedMessage message)
     {
-        var messages = new List<ConsumedMessage>();
-        IConsumer<byte[], byte[]>? consumer = null;
-
         try
         {
-            consumer = CreateConsumer(request.ConnectionId, request);
-            consumer.Subscribe(request.Topic);
-
-            var timeoutValue = timeout ?? TimeSpan.FromSeconds(5);
-            var endTime = DateTime.UtcNow.Add(timeoutValue);
-
-            while (messages.Count < maxMessages && DateTime.UtcNow < endTime)
-            {
-                var remainingTime = endTime - DateTime.UtcNow;
-                var result = consumer.Consume(remainingTime);
-
-                if (result == null)
-                    break;
-
-                var consumedMessage = CreateConsumedMessage(result, request);
-                messages.Add(consumedMessage);
-            }
-
-            _logger.LogInformation("Consumed {Count} messages from topic {Topic} with {KeyType}/{ValueType} deserialization", 
-                messages.Count, request.Topic, request.KeySerialization, request.ValueSerialization);
-
-            return Task.FromResult(messages);
+            await _hubContext.Clients.Client(clientConnectionId).SendAsync("MessageReceived", message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error consuming messages from topic {Topic}", request.Topic);
-            throw;
-        }
-        finally
-        {
-            consumer?.Close();
-            consumer?.Dispose();
+            _logger.LogError(ex, "Error pushing message to SignalR client {ClientConnectionId}", clientConnectionId);
         }
     }
 
+    private async Task PushErrorToSignalRAsync(string clientConnectionId, string error)
+    {
+        try
+        {
+            await _hubContext.Clients.Client(clientConnectionId).SendAsync("Error", error);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error pushing error message to SignalR client {ClientConnectionId}", clientConnectionId);
+        }
+    }
+
+    /// <summary>
+    /// Start real-time consumption via SignalR. Messages are pushed to the client as they arrive.
+    /// </summary>
     public async Task StartContinuousConsumptionAsync(
+        string clientConnectionId,
         ConsumeMessageRequest request,
-        Func<ConsumedMessage, Task> onMessage,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(request.GroupId))
+        {
+            await PushErrorToSignalRAsync(clientConnectionId, "Consumer Group ID is required");
+            return;
+        }
+
         var consumerId = $"{request.ConnectionId}-{request.Topic}-{request.GroupId}";
+        
+        // Check if already consuming
+        if (_cancellationTokens.ContainsKey(consumerId))
+        {
+            await PushErrorToSignalRAsync(clientConnectionId, "Already consuming from this topic with this group");
+            return;
+        }
+
         var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _cancellationTokens[consumerId] = cts;
 
@@ -149,8 +158,8 @@ public class KafkaConsumerService
             _consumers[consumerId] = consumer;
             consumer.Subscribe(request.Topic);
 
-            _logger.LogInformation("Started continuous consumption from topic {Topic} with {KeyType}/{ValueType} deserialization", 
-                request.Topic, request.KeySerialization, request.ValueSerialization);
+            _logger.LogInformation("Started real-time consumption from topic {Topic} for group {GroupId} with {KeyType}/{ValueType} deserialization", 
+                request.Topic, request.GroupId, request.KeySerialization, request.ValueSerialization);
 
             while (!cts.Token.IsCancellationRequested)
             {
@@ -158,22 +167,24 @@ public class KafkaConsumerService
                 {
                     var result = consumer.Consume(cts.Token);
                     var consumedMessage = CreateConsumedMessage(result, request);
-                    await onMessage(consumedMessage);
+                    
+                    await PushMessageToSignalRAsync(clientConnectionId, consumedMessage);
                 }
                 catch (ConsumeException ex)
                 {
-                    _logger.LogError(ex, "Error consuming message");
+                    _logger.LogError(ex, "Error consuming message from topic {Topic}", request.Topic);
+                    await PushErrorToSignalRAsync(clientConnectionId, $"Consume error: {ex.Message}");
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Consumption cancelled for topic {Topic}", request.Topic);
+            _logger.LogInformation("Real-time consumption cancelled for topic {Topic}, group {GroupId}", request.Topic, request.GroupId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in continuous consumption from topic {Topic}", request.Topic);
-            throw;
+            _logger.LogError(ex, "Error in real-time consumption from topic {Topic}", request.Topic);
+            await PushErrorToSignalRAsync(clientConnectionId, $"Consumption error: {ex.Message}");
         }
         finally
         {
@@ -186,15 +197,22 @@ public class KafkaConsumerService
         }
     }
 
-    public void StopConsumption(string connectionId, string topic, string? groupId = null)
+    /// <summary>
+    /// Stop consumption for a specific topic and consumer group.
+    /// </summary>
+    public void StopConsumption(string connectionId, string topic, string groupId)
     {
-        var consumerId = $"{connectionId}-{topic}-{groupId ?? "*"}";
+        var consumerId = $"{connectionId}-{topic}-{groupId}";
         if (_cancellationTokens.TryGetValue(consumerId, out var cts))
         {
             cts.Cancel();
+            _logger.LogInformation("Stopped consumption for topic {Topic}, group {GroupId}", topic, groupId);
         }
     }
 
+    /// <summary>
+    /// Cleanup all resources on shutdown.
+    /// </summary>
     public void DisposeAll()
     {
         foreach (var cts in _cancellationTokens.Values)

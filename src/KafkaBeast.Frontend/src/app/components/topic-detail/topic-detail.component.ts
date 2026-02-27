@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { EditorComponent } from 'ngx-monaco-editor-v2';
+import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,6 +24,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatRadioModule } from '@angular/material/radio';
 import { KafkaApiService } from '../../services/kafka-api.service';
 import { KafkaSignalRService } from '../../services/kafka-signalr.service';
 import { Subscription } from 'rxjs';
@@ -43,7 +44,8 @@ import {
   ProduceMessageRequest,
   ProduceMessageResponse,
   SerializationType,
-  SerializationTypeInfo
+  SerializationTypeInfo,
+  ConsumptionPeriodType
 } from '../../models/kafka.models';
 
 interface PartitionInfo {
@@ -83,13 +85,14 @@ interface PartitionInfo {
     MatProgressBarModule,
     MatButtonToggleModule,
     MatAutocompleteModule,
+    MatRadioModule,
     // Sub-components
     MessageViewerComponent,
     BatchProducerComponent,
     TopicSettingsComponent,
     TopicStatisticsComponent,
     // Monaco Editor
-    EditorComponent
+    MonacoEditorModule
   ],
   templateUrl: './topic-detail.component.html',
   styleUrls: ['./topic-detail.component.css']
@@ -112,16 +115,14 @@ export class TopicDetailComponent implements OnInit, OnDestroy {
   // Partition columns
   partitionColumns = ['partitionId', 'leader', 'replicas', 'isrs', 'lowOffset', 'highOffset', 'messageCount'];
   
-  // Consume
+  // Consume - Real-time SignalR only
   consumeRequest: ConsumeMessageRequest = {
     connectionId: '',
     topic: '',
     autoOffsetReset: true,
     valueSerialization: SerializationType.String
   };
-  maxMessages = 100;
   consumedMessages: ConsumedMessage[] = [];
-  useRealtime = false;
   isConsuming = false;
   
   // Produce
@@ -367,9 +368,24 @@ export class TopicDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.stopConsuming();
-    this.messageSubscription?.unsubscribe();
-    this.errorSubscription?.unsubscribe();
+    // Stop consumption if active
+    if (this.isConsuming) {
+      this.signalRService.stopConsuming(
+        this.consumeRequest.connectionId,
+        this.consumeRequest.topic,
+        this.consumeRequest.groupId || ''
+      ).catch(err => console.error('Error stopping consumption on destroy:', err));
+    }
+    
+    // Unsubscribe from SignalR observables
+    if (this.messageSubscription) {
+      this.messageSubscription.unsubscribe();
+    }
+    if (this.errorSubscription) {
+      this.errorSubscription.unsubscribe();
+    }
+    
+    console.log('Topic detail component destroyed');
   }
 
   loadConnections() {
@@ -401,17 +417,37 @@ export class TopicDetailComponent implements OnInit, OnDestroy {
   }
 
   setupSignalR() {
-    this.signalRService.startConnection();
-    
-    this.messageSubscription = this.signalRService.messages$.subscribe((message: ConsumedMessage) => {
-      if (message && message.topic === this.topicName) {
-        this.consumedMessages.unshift(message);
-      }
-    });
+    try {
+      this.signalRService.startConnection().then(() => {
+        console.log('SignalR Connected');
+      }).catch(err => {
+        console.error('SignalR connection failed:', err);
+        this.showError('Failed to connect to real-time service');
+      });
+      
+      // Subscribe to consumed messages from SignalR
+      this.messageSubscription = this.signalRService.messages$.subscribe((message: ConsumedMessage) => {
+        if (message && message.topic === this.topicName) {
+          console.log('Message received from SignalR:', message);
+          // Add message to the beginning of the list (most recent first)
+          this.consumedMessages.unshift(message);
+          // Keep only last 1000 messages to prevent memory issues
+          if (this.consumedMessages.length > 1000) {
+            this.consumedMessages.pop();
+          }
+        }
+      });
 
-    this.errorSubscription = this.signalRService.errors$.subscribe((error: string) => {
-      if (error) this.showError('Consumer error: ' + error);
-    });
+      // Subscribe to errors from SignalR
+      this.errorSubscription = this.signalRService.errors$.subscribe((error: string) => {
+        if (error) {
+          console.error('SignalR error:', error);
+          this.showError('Consumer error: ' + error);
+        }
+      });
+    } catch (err) {
+      console.error('Error setting up SignalR:', err);
+    }
   }
 
   onConnectionChange() {
@@ -432,7 +468,9 @@ export class TopicDetailComponent implements OnInit, OnDestroy {
         this.loadWatermarks();
       },
       error: (err) => {
-        this.showError('Failed to load topic details: ' + err.message);
+        console.warn('Failed to load topic details:', err.message);
+        // Continue with basic functionality even if topic details fail
+        this.topicDetails = null;
         this.isLoading = false;
       }
     });
@@ -577,30 +615,48 @@ export class TopicDetailComponent implements OnInit, OnDestroy {
     return '';
   }
 
-  // Consume methods
-  consumeMessages() {
-    this.isConsuming = true;
-    this.apiService.consumeBatch(this.consumeRequest, this.maxMessages).subscribe({
-      next: (messages: ConsumedMessage[]) => {
-        this.consumedMessages = messages;
-        this.isConsuming = false;
-        this.showSuccess(`Consumed ${messages.length} messages`);
-      },
-      error: (err: any) => {
-        this.showError('Failed to consume: ' + (err.error?.error || err.message));
-        this.isConsuming = false;
-      }
-    });
-  }
+  // Consume methods - Real-time SignalR only
+  startConsuming() {
+    if (!this.consumeRequest.connectionId || !this.consumeRequest.topic) {
+      this.showError('Connection and topic are required');
+      return;
+    }
 
-  startRealtimeConsume() {
+    if (!this.consumeRequest.groupId) {
+      this.showError('Consumer Group ID is required');
+      return;
+    }
+
     this.isConsuming = true;
-    this.signalRService.startConsuming(this.consumeRequest);
+    this.consumedMessages = [];
+    
+    this.signalRService.startConsuming(this.consumeRequest)
+      .then(() => {
+        this.showSuccess('Real-time consumption started');
+        console.log('Started consuming from topic:', this.consumeRequest.topic);
+      })
+      .catch((err: any) => {
+        this.showError('Failed to start consumption: ' + (err.message || err));
+        this.isConsuming = false;
+        console.error('Error starting consumption:', err);
+      });
   }
 
   stopConsuming() {
-    this.signalRService.stopConsuming(this.selectedConnectionId, this.topicName);
-    this.isConsuming = false;
+    this.signalRService.stopConsuming(
+      this.consumeRequest.connectionId,
+      this.consumeRequest.topic,
+      this.consumeRequest.groupId || ''
+    )
+      .then(() => {
+        this.isConsuming = false;
+        this.showSuccess('Consumption stopped');
+        console.log('Stopped consuming from topic:', this.consumeRequest.topic);
+      })
+      .catch((err: any) => {
+        console.error('Error stopping consumption:', err);
+        this.isConsuming = false;
+      });
   }
 
   clearMessages() {

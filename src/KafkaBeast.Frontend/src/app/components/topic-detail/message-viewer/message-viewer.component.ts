@@ -8,7 +8,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { EditorComponent } from 'ngx-monaco-editor-v2';
+import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 
 export interface MessageViewerData {
   key?: string;
@@ -40,7 +40,7 @@ export interface XmlNode {
     MatTooltipModule,
     MatButtonToggleModule,
     MatSnackBarModule,
-    EditorComponent
+    MonacoEditorModule
   ],
   templateUrl: './message-viewer.component.html',
   styleUrls: ['./message-viewer.component.css']

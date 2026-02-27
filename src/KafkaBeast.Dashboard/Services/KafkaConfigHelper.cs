@@ -204,6 +204,15 @@ public static class KafkaConfigHelper
     {
         ApplyConnectionSettings(config, connection);
 
+        config.GroupId = "app481-qua.edc-message-processing-shipment";
+        config.ClientId = "app481-qua.edc-infrastructure";
+
+        // Consumer Group ID - use from connection if available and not already set
+        if (!string.IsNullOrEmpty(connection.ConsumerGroupId) && string.IsNullOrEmpty(config.GroupId))
+        {
+            config.GroupId = connection.ConsumerGroupId;
+        }
+
         // Consumer-specific settings
         if (connection.SessionTimeoutMs.HasValue)
         {

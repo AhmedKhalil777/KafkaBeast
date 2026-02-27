@@ -1,3 +1,4 @@
+using System.Threading;
 using KafkaBeast.Dashboard.Models;
 using KafkaBeast.Dashboard.Services;
 using Microsoft.AspNetCore.SignalR;
@@ -39,11 +40,8 @@ public class KafkaHub : Hub
             try
             {
                 await _consumerService.StartContinuousConsumptionAsync(
+                    connectionId,
                     request,
-                    async (message) =>
-                    {
-                        await Clients.Caller.SendAsync("MessageReceived", message);
-                    },
                     cts.Token);
             }
             catch (OperationCanceledException)
@@ -70,14 +68,14 @@ public class KafkaHub : Hub
         }, cts.Token);
     }
 
-    public Task StopConsuming(string connectionId, string topic)
+    public Task StopConsuming(string connectionId, string topic, string groupId)
     {
         var consumerKey = $"{Context.ConnectionId}-{connectionId}-{topic}";
         if (_activeConsumers.TryGetValue(consumerKey, out var cts))
         {
             cts.Cancel();
             _activeConsumers.Remove(consumerKey);
-            _logger.LogInformation("Stopped consumption for connection {ConnectionId}, topic {Topic}", Context.ConnectionId, topic);
+            _logger.LogInformation("Stopped consumption for topic {Topic}, group {GroupId}", topic, groupId);
         }
         return Task.CompletedTask;
     }

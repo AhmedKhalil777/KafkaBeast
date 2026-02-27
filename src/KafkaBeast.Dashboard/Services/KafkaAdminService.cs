@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using KafkaBeast.Dashboard.Models;
+using Microsoft.Extensions.Logging;
 
 namespace KafkaBeast.Dashboard.Services;
 

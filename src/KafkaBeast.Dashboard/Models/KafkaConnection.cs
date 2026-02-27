@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+
 namespace KafkaBeast.Dashboard.Models;
 
 public class KafkaConnection
@@ -43,6 +47,7 @@ public class KafkaConnection
     public int? SocketTimeoutMs { get; set; }
     public int? MaxInFlight { get; set; }
     public string? ClientId { get; set; }
+    public string? ConsumerGroupId { get; set; }
     public CompressionType? CompressionType { get; set; }
     public Acks? Acks { get; set; }
     public bool? EnableIdempotence { get; set; }
@@ -155,6 +160,13 @@ public class BatchProduceResult
     public long? Offset { get; set; }
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum ConsumptionPeriodType
+{
+    Duration,
+    Manual
+}
+
 public class ConsumeMessageRequest
 {
     public string ConnectionId { get; set; } = string.Empty;
@@ -171,6 +183,10 @@ public class ConsumeMessageRequest
     public string? SchemaRegistryUrl { get; set; }
     public string? AvroSchema { get; set; }
     public string? ProtobufSchema { get; set; }
+    
+    // Consumption period settings
+    public ConsumptionPeriodType ConsumptionPeriodType { get; set; } = ConsumptionPeriodType.Manual;
+    public int ConsumptionDurationSeconds { get; set; } = 30; // Default 30 seconds for Duration mode
 }
 
 public class ConsumedMessage

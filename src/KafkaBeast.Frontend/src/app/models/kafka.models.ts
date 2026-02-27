@@ -40,6 +40,7 @@ export interface KafkaConnection {
   socketTimeoutMs?: number;
   maxInFlight?: number;
   clientId?: string;
+  consumerGroupId?: string;
   compressionType?: CompressionType;
   acks?: Acks;
   enableIdempotence?: boolean;
@@ -170,6 +171,12 @@ export interface BatchProduceResult {
   offset?: number;
 }
 
+// Consumption Period Type
+export enum ConsumptionPeriodType {
+  Duration = 'Duration',
+  Manual = 'Manual'
+}
+
 export interface ConsumeMessageRequest {
   connectionId: string;
   topic: string;
@@ -183,6 +190,8 @@ export interface ConsumeMessageRequest {
   schemaRegistryUrl?: string;
   avroSchema?: string;
   protobufSchema?: string;
+  consumptionPeriodType?: ConsumptionPeriodType;
+  consumptionDurationSeconds?: number;
 }
 
 export interface ConsumedMessage {

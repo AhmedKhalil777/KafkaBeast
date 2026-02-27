@@ -1,52 +1,132 @@
+using KafkaBeast.Dashboard.Data;
 using KafkaBeast.Dashboard.Models;
-using System.Collections.Concurrent;
+using Microsoft.EntityFrameworkCore;
+using SaslMechanism = KafkaBeast.Dashboard.Models.SaslMechanism;
+using SecurityProtocol = KafkaBeast.Dashboard.Models.SecurityProtocol;
 
 namespace KafkaBeast.Dashboard.Services;
 
 public class KafkaConnectionService
 {
-    private readonly ConcurrentDictionary<string, KafkaConnection> _connections = new();
+    private readonly IDbContextFactory<KafkaBeastDbContext> _contextFactory;
+    private readonly ILogger<KafkaConnectionService> _logger;
 
-    public Task<List<KafkaConnection>> GetAllConnectionsAsync()
+    public KafkaConnectionService(
+        IDbContextFactory<KafkaBeastDbContext> contextFactory,
+        ILogger<KafkaConnectionService> logger)
     {
-        return Task.FromResult(_connections.Values.ToList());
+        _contextFactory = contextFactory;
+        _logger = logger;
     }
 
-    public Task<KafkaConnection?> GetConnectionAsync(string id)
+    public async Task<List<KafkaConnection>> GetAllConnectionsAsync()
     {
-        _connections.TryGetValue(id, out var connection);
-        return Task.FromResult(connection);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Connections.OrderByDescending(c => c.CreatedAt).ToListAsync();
     }
 
-    public Task<KafkaConnection> AddConnectionAsync(KafkaConnection connection)
+    public async Task<KafkaConnection?> GetConnectionAsync(string id)
     {
-        _connections[connection.Id] = connection;
-        return Task.FromResult(connection);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.Connections.FindAsync(id);
     }
 
-    public Task<bool> UpdateConnectionAsync(KafkaConnection connection)
+    public async Task<KafkaConnection> AddConnectionAsync(KafkaConnection connection)
     {
-        if (_connections.ContainsKey(connection.Id))
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        // Ensure ID is set
+        if (string.IsNullOrWhiteSpace(connection.Id))
         {
-            _connections[connection.Id] = connection;
-            return Task.FromResult(true);
+            connection.Id = Guid.NewGuid().ToString();
         }
-        return Task.FromResult(false);
+
+        connection.CreatedAt = DateTime.UtcNow;
+        
+        context.Connections.Add(connection);
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Created new connection: {Name} ({Id})", connection.Name, connection.Id);
+        return connection;
     }
 
-    public Task<bool> DeleteConnectionAsync(string id)
+    public async Task<bool> UpdateConnectionAsync(KafkaConnection connection)
     {
-        return Task.FromResult(_connections.TryRemove(id, out _));
-    }
-
-    public Task<bool> SetConnectionActiveAsync(string id, bool isActive)
-    {
-        if (_connections.TryGetValue(id, out var connection))
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var existing = await context.Connections.FindAsync(connection.Id);
+        if (existing == null)
         {
-            connection.IsActive = isActive;
-            return Task.FromResult(true);
+            return false;
         }
-        return Task.FromResult(false);
+
+        context.Entry(existing).CurrentValues.SetValues(connection);
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Updated connection: {Name} ({Id})", connection.Name, connection.Id);
+        return true;
+    }
+
+    public async Task<bool> DeleteConnectionAsync(string id)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var connection = await context.Connections.FindAsync(id);
+        if (connection == null)
+        {
+            return false;
+        }
+
+        context.Connections.Remove(connection);
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Deleted connection: {Name} ({Id})", connection.Name, id);
+        return true;
+    }
+
+    public async Task<bool> SetConnectionActiveAsync(string id, bool isActive)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var connection = await context.Connections.FindAsync(id);
+        if (connection == null)
+        {
+            return false;
+        }
+
+        connection.IsActive = isActive;
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Set connection {Name} ({Id}) active status to {IsActive}", 
+            connection.Name, id, isActive);
+        return true;
+    }
+
+    /// <summary>
+    /// Seeds the database with a default connection if no connections exist
+    /// </summary>
+    public async Task SeedDefaultConnectionIfNeededAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        if (!await context.Connections.AnyAsync())
+        {
+            var defaultConnection = new KafkaConnection
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "Default Connection",
+                BootstrapServers = "localhost:9092",
+                IsActive = true,
+                ClientId = "kafka-beast-client",
+                ConsumerGroupId = "kafka-beast-group",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Connections.Add(defaultConnection);
+            await context.SaveChangesAsync();
+            
+            _logger.LogInformation("Seeded default connection");
+        }
     }
 }
 

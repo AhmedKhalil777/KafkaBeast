@@ -32,7 +32,7 @@
       </div>
 
       <!-- Main Content -->
-      <mat-card *ngIf="!isLoading && topicDetails" class="main-card fade-in">
+      <mat-card *ngIf="!isLoading" class="main-card fade-in">
         <mat-tab-group [(selectedIndex)]="activeTabIndex" class="topic-tabs">
           
           <!-- Overview Tab -->
@@ -43,7 +43,7 @@
             </ng-template>
             <div class="tab-content">
               <!-- Stats Cards -->
-              <div class="stats-row">
+              <div class="stats-row" *ngIf="topicDetails">
                 <div class="stat-card">
                   <mat-icon>view_module</mat-icon>
                   <div class="stat-info">
@@ -74,7 +74,14 @@
                 </div>
               </div>
 
+              <!-- No Data Message -->
+              <div *ngIf="!topicDetails" class="no-data-message">
+                <mat-icon>info</mat-icon>
+                <p>Topic details unavailable. You can still consume and produce messages.</p>
+              </div>
+
               <!-- Partitions Table -->
+              <div *ngIf="topicDetails">
               <h3 class="section-title">
                 <mat-icon>view_list</mat-icon>
                 Partitions
@@ -135,15 +142,16 @@
               </div>
 
               <!-- Configuration Section -->
-              <h3 class="section-title" *ngIf="topicDetails.configurations">
+              <h3 class="section-title" *ngIf="topicDetails?.configurations">
                 <mat-icon>settings</mat-icon>
                 Configuration
               </h3>
-              <div class="config-grid" *ngIf="topicDetails.configurations">
+              <div class="config-grid" *ngIf="topicDetails?.configurations">
                 <div *ngFor="let config of getConfigEntries(topicDetails.configurations)" class="config-item">
                   <code class="config-key">{{ config.key }}</code>
                   <span class="config-value">{{ config.value }}</span>
                 </div>
+              </div>
               </div>
             </div>
           </mat-tab>
@@ -162,8 +170,12 @@
               <div class="consumer-controls">
                 <div class="control-row">
                   <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
-                    <mat-label>Max Messages</mat-label>
-                    <input matInput type="number" [(ngModel)]="maxMessages" min="1" max="1000">
+                    <mat-label>Consumer Group ID</mat-label>
+                    <input matInput 
+                           [(ngModel)]="consumeRequest.groupId" 
+                           placeholder="Required"
+                           matTooltip="Consumer Group ID is required for SignalR streaming"
+                           required>
                   </mat-form-field>
 
                   <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
@@ -185,7 +197,16 @@
                   </mat-form-field>
 
                   <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
-                    <mat-label>Deserializer</mat-label>
+                    <mat-label>Key Deserializer</mat-label>
+                    <mat-select [(ngModel)]="consumeRequest.keySerialization">
+                      <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
+                        {{ type.name }}
+                      </mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="dense-field">
+                    <mat-label>Value Deserializer</mat-label>
                     <mat-select [(ngModel)]="consumeRequest.valueSerialization">
                       <mat-option *ngFor="let type of serializationTypes" [value]="type.type">
                         {{ type.name }}
@@ -194,36 +215,46 @@
                   </mat-form-field>
                 </div>
 
-                <div class="control-actions">
-                  <mat-slide-toggle [(ngModel)]="useRealtime" color="primary">
-                    Real-time streaming
-                  </mat-slide-toggle>
-                  
-                  <button mat-raised-button color="primary" 
-                          (click)="useRealtime ? startRealtimeConsume() : consumeMessages()"
-                          [disabled]="isConsuming">
-                    <mat-icon>{{ isConsuming ? 'hourglass_empty' : 'play_arrow' }}</mat-icon>
-                    {{ isConsuming ? 'Consuming...' : 'Start' }}
-                  </button>
+                <!-- SignalR Real-Time Controls -->
+                <div class="signalr-controls">
+                  <mat-chip class="signalr-badge">
+                    <mat-icon>cloud_queue</mat-icon>
+                    Real-Time SignalR Streaming
+                  </mat-chip>
 
-                  <button mat-stroked-button color="warn" 
-                          *ngIf="isConsuming && useRealtime"
-                          (click)="stopConsuming()">
-                    <mat-icon>stop</mat-icon>
-                    Stop
-                  </button>
+                  <!-- Warning for missing group ID -->
+                  <div class="warning-message" *ngIf="!consumeRequest.groupId">
+                    <mat-icon>warning</mat-icon>
+                    <span>Consumer Group ID is required</span>
+                  </div>
 
-                  <button mat-stroked-button (click)="clearMessages()" 
-                          *ngIf="consumedMessages.length > 0">
-                    <mat-icon>clear_all</mat-icon>
-                    Clear
-                  </button>
+                  <div class="action-buttons">
+                    <button mat-raised-button color="primary" 
+                            (click)="startConsuming()"
+                            [disabled]="isConsuming || !consumeRequest.groupId">
+                      <mat-icon>{{ isConsuming ? 'hourglass_empty' : 'play_arrow' }}</mat-icon>
+                      {{ isConsuming ? 'Consuming...' : 'Start Consuming' }}
+                    </button>
 
-                  <button mat-stroked-button (click)="exportMessages()" 
-                          *ngIf="consumedMessages.length > 0" matTooltip="Export to JSON">
-                    <mat-icon>file_download</mat-icon>
-                    Export
-                  </button>
+                    <button mat-stroked-button color="warn" 
+                            *ngIf="isConsuming"
+                            (click)="stopConsuming()">
+                      <mat-icon>stop</mat-icon>
+                      Stop
+                    </button>
+
+                    <button mat-stroked-button (click)="clearMessages()" 
+                            *ngIf="consumedMessages.length > 0">
+                      <mat-icon>clear_all</mat-icon>
+                      Clear
+                    </button>
+
+                    <button mat-stroked-button (click)="exportMessages()" 
+                            *ngIf="consumedMessages.length > 0" matTooltip="Export to JSON">
+                      <mat-icon>file_download</mat-icon>
+                      Export
+                    </button>
+                  </div>
                 </div>
               </div>
 
